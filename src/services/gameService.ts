@@ -3,6 +3,10 @@ import { apiClient } from './api/client';
 import { ApiResponse, PaginatedResponse } from './api/types';
 import { UserGame, GameTemplate } from '@/types/game';
 
+// ==========================================
+// INTERFACES (Define OUTSIDE the class)
+// ==========================================
+
 export interface ProcessNotesRequest {
   file: File;
   templateId: number;
@@ -22,6 +26,66 @@ export interface GameFilters {
   pageSize?: number;
 }
 
+// ✅ NEW: Game configuration interface
+export interface GameConfig {
+  template_id: number;
+  game_type: 'plane' | 'fishing' | 'circuit' | 'runner' | 'quiz';
+  config: {
+    player: {
+      sprite_type?: string;
+      speed?: number;
+      controls?: string;
+      hitbox_size?: number;
+      health?: number;
+      [key: string]: any;
+    };
+    obstacles?: Array<{
+      type: string;
+      spawn_rate: number;
+      speed: number;
+      collision_action?: string;
+      [key: string]: any;
+    }>;
+    fish?: Array<{
+      type: string;
+      size: number;
+      color: string;
+      value: number;
+      speed: number;
+      spawn_weight: number;
+    }>;
+    environment: {
+      background_color: string;
+      scroll_speed?: number;
+      [key: string]: any;
+    };
+    quiz: {
+      trigger: string;
+      questions_per_collision?: number;
+      min_questions?: number;
+      max_questions?: number;
+      correct_answer_reward?: string;
+      [key: string]: any;
+    };
+    scoring?: {
+      distance_multiplier?: number;
+      obstacle_points?: number;
+      question_correct_points?: number;
+      [key: string]: any;
+    };
+    gameplay?: {
+      time_limit?: number;
+      bonus_time_per_correct?: number;
+      [key: string]: any;
+    };
+  };
+  version: string;
+}
+
+// ==========================================
+// SERVICE CLASS
+// ==========================================
+
 class GameService {
   private readonly baseUrl = '/games';
 
@@ -39,6 +103,16 @@ class GameService {
    */
   async getTemplate(id: number): Promise<ApiResponse<GameTemplate>> {
     return apiClient.get<ApiResponse<GameTemplate>>(`${this.baseUrl}/templates/${id}`);
+  }
+
+  /**
+   * ✅ NEW: Get game configuration by template ID
+   * This fetches the backend configuration for a game type
+   */
+  async getGameConfig(templateId: number): Promise<ApiResponse<GameConfig>> {
+    return apiClient.get<ApiResponse<GameConfig>>(
+      `${this.baseUrl}/configurations/by-template/${templateId}`
+    );
   }
 
   /**

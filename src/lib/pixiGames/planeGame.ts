@@ -30,7 +30,8 @@ const questions = [
 
 export async function initializePlaneGame(
   app: Application,
-  callbacks: GameCallbacks
+  callbacks: GameCallbacks,
+  config?: any
 ): Promise<void> {
   const gameState = {
     score: 0,

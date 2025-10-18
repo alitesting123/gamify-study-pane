@@ -3,6 +3,7 @@ import { Application } from 'pixi.js';
 import { initializePlaneGame } from './pixiGames/planeGame';
 import { initializeFishingGame } from './pixiGames/fishingGame';
 import { initializeCircuitGame } from './pixiGames/circuitGame';
+import type { GameConfig } from '@/services/gameService';
 
 interface GameCallbacks {
   onQuestionComplete: (isCorrect: boolean) => void;
@@ -10,21 +11,29 @@ interface GameCallbacks {
   onScoreUpdate?: (score: number, secondary?: number) => void;
 }
 
-export type GameType = 'plane' | 'fishing' | 'circuit' | 'quiz';
+export type GameType = 'plane' | 'fishing' | 'circuit' | 'runner' | 'quiz';
 
 let app: Application | null = null;
 
 export async function initializeGame(
   container: HTMLDivElement,
   callbacks: GameCallbacks,
-  gameType: GameType = 'plane'
+  gameConfig?: GameConfig,        // ← Keep this
+  legacyGameType?: GameType       // ← Keep this
+  // ❌ REMOVED: config?: any      // ← DELETE - This was causing the error!
 ): Promise<Application> {
   try {
     app = new Application();
-    const bgColor = gameType === 'fishing' ? '#1e3a5f' : gameType === 'circuit' ? '#0a1628' : '#87CEEB';
+
+    // Determine game type and configuration
+    const gameType = gameConfig?.game_type || legacyGameType || 'plane';
+    const backgroundColor = gameConfig?.config?.environment?.background_color || 
+                           getDefaultBackgroundColor(gameType);
     
+    console.log('🎮 Initializing game:', { gameType, hasConfig: !!gameConfig });
+
     await app.init({
-      background: bgColor,
+      background: backgroundColor,
       resizeTo: container,
       antialias: true,
       autoDensity: true,
@@ -35,16 +44,15 @@ export async function initializeGame(
 
     switch (gameType) {
       case 'plane':
-        await initializePlaneGame(app, callbacks);
+        await initializePlaneGame(app, callbacks, gameConfig?.config);
         break;
       case 'fishing':
-        await initializeFishingGame(app, callbacks);
+        await initializeFishingGame(app, callbacks, gameConfig?.config);
         break;
       case 'circuit':
-        await initializeCircuitGame(app, callbacks);
+        await initializeCircuitGame(app, callbacks, gameConfig?.config);
         break;
-      default:
-        await initializePlaneGame(app, callbacks);
+
     }
 
     return app;
@@ -52,6 +60,17 @@ export async function initializeGame(
     console.error('Failed to initialize game:', error);
     throw error;
   }
+}
+
+function getDefaultBackgroundColor(gameType: GameType): string {
+  const defaults: Record<GameType, string> = {
+    fishing: '#1e3a5f',
+    circuit: '#0a1628',
+    plane: '#87CEEB',
+    runner: '#87CEEB',  // ← ADD THIS LINE
+    quiz: '#ffffff',
+  };
+  return defaults[gameType] || '#87CEEB';
 }
 
 export function cleanupGame() {

@@ -23,7 +23,8 @@ const questions = [
 
 export async function initializeCircuitGame(
   app: Application,
-  callbacks: GameCallbacks
+  callbacks: GameCallbacks,
+  config?: any
 ): Promise<void> {
   let player: Container;
   let circuitsContainer: Container;

@@ -31,7 +31,8 @@ const questions = [
 
 export async function initializeFishingGame(
   app: Application,
-  callbacks: GameCallbacks
+  callbacks: GameCallbacks,
+  config?: any
 ): Promise<void> {
   const gameState = {
     score: 0,
