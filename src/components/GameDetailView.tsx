@@ -1,3 +1,4 @@
+// src/components/GameDetailView.tsx
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +8,11 @@ import { toast } from "sonner";
 
 interface GameDetailViewProps {
   onBack: () => void;
+  onPlay?: () => void;  // Made optional for backward compatibility
 }
 
-export const GameDetailView = ({ onBack }: GameDetailViewProps) => {
-  const { userGames, selectedGameId } = useGameContext();
+export const GameDetailView = ({ onBack, onPlay }: GameDetailViewProps) => {
+  const { userGames, selectedGameId, setIsPlaying } = useGameContext();
   
   const game = userGames.find((g) => g.id === selectedGameId);
 
@@ -33,10 +35,15 @@ export const GameDetailView = ({ onBack }: GameDetailViewProps) => {
   };
 
   const handleStartGame = () => {
-    toast.success("Starting game...", {
-      description: "Get ready to test your knowledge!",
-    });
-    // This is where PixiJS game would be launched
+    if (onPlay) {
+      setIsPlaying(true);
+      onPlay();
+    } else {
+      // Fallback if onPlay is not provided
+      toast.success("Starting game...", {
+        description: "Get ready to test your knowledge!",
+      });
+    }
   };
 
   return (

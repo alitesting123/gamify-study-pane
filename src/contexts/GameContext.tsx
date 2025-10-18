@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+// src/contexts/GameContext.tsx
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { UserGame, UserProgress } from "@/types/game";
+import { storage } from "@/lib/storage";
 
 interface GameContextType {
   userGames: UserGame[];
@@ -8,20 +10,34 @@ interface GameContextType {
   setSelectedGameId: (id: string | null) => void;
   userProgress: UserProgress;
   updateProgress: (points: number) => void;
+  isPlaying: boolean;
+  setIsPlaying: (playing: boolean) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
-  const [userGames, setUserGames] = useState<UserGame[]>([]);
+  // Load from localStorage on mount
+  const [userGames, setUserGames] = useState<UserGame[]>(() => 
+    storage.loadUserGames()
+  );
+  
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
-  const [userProgress, setUserProgress] = useState<UserProgress>({
-    level: 1,
-    currentXP: 0,
-    xpToNextLevel: 100,
-    totalGamesCompleted: 0,
-    totalPoints: 0,
-  });
+  const [isPlaying, setIsPlaying] = useState(false);
+  
+  const [userProgress, setUserProgress] = useState<UserProgress>(() =>
+    storage.loadUserProgress()
+  );
+
+  // Persist userGames to localStorage whenever it changes
+  useEffect(() => {
+    storage.saveUserGames(userGames);
+  }, [userGames]);
+
+  // Persist userProgress to localStorage whenever it changes
+  useEffect(() => {
+    storage.saveUserProgress(userProgress);
+  }, [userProgress]);
 
   const addUserGame = (game: Omit<UserGame, "id" | "createdAt">) => {
     const newGame: UserGame = {
@@ -43,6 +59,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         level: newLevel > prev.level ? newLevel : prev.level,
         xpToNextLevel: 100 * newLevel,
         totalPoints: prev.totalPoints + points,
+        totalGamesCompleted: prev.totalGamesCompleted + 1,
       };
     });
   };
@@ -56,6 +73,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         setSelectedGameId,
         userProgress,
         updateProgress,
+        isPlaying,
+        setIsPlaying,
       }}
     >
       {children}

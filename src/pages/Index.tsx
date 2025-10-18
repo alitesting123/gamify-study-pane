@@ -1,7 +1,9 @@
+// src/pages/Index.tsx
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { GameCard } from "@/components/GameCard";
 import { GameDetailView } from "@/components/GameDetailView";
+import { GamePlayView } from "@/components/GamePlayView";
 import { UploadNotesDialog } from "@/components/UploadNotesDialog";
 import { Input } from "@/components/ui/input";
 import { Search, TrendingUp } from "lucide-react";
@@ -78,10 +80,22 @@ const Index = () => {
   );
 
   const renderContent = () => {
-    if (currentView === "game-detail") {
-      return <GameDetailView onBack={() => setCurrentView("library")} />;
+    // Game Play View
+    if (currentView === "game-play") {
+      return <GamePlayView onBack={() => setCurrentView("game-detail")} />;
     }
 
+    // Game Detail View
+    if (currentView === "game-detail") {
+      return (
+        <GameDetailView
+          onBack={() => setCurrentView("library")}
+          onPlay={() => setCurrentView("game-play")}
+        />
+      );
+    }
+
+    // My Notes View
     if (currentView === "notes") {
       return (
         <div className="max-w-7xl mx-auto text-center py-12">
@@ -91,7 +105,7 @@ const Index = () => {
       );
     }
 
-    // Default: library view
+    // Default: Library View
     return (
       <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
         <div>
