@@ -7,7 +7,7 @@ interface GameCallbacks {
   onScoreUpdate?: (score: number, fishCaught: number) => void;
 }
 
-// Quiz questions
+// Quiz questions - expanded set
 const questions = [
   { question: "What do fish use to breathe underwater?", answer: "gills" },
   { question: "What is 12 + 18?", answer: "30" },
@@ -18,7 +18,15 @@ const questions = [
   { question: "What is a baby fish called?", answer: "fry" },
   { question: "What is 25 - 13?", answer: "12" },
   { question: "Do fish have eyelids? (yes or no)", answer: "no" },
-  { question: "What is 9 x 9?", answer: "81" }
+  { question: "What is 9 x 9?", answer: "81" },
+  { question: "What is 15 + 27?", answer: "42" },
+  { question: "How many fins does a typical fish have?", answer: "7" },
+  { question: "What is 6 x 7?", answer: "42" },
+  { question: "Can fish drown? (yes or no)", answer: "yes" },
+  { question: "What is 100 - 35?", answer: "65" },
+  { question: "What is 8 x 9?", answer: "72" },
+  { question: "Do all fish lay eggs? (yes or no)", answer: "no" },
+  { question: "What is 50 ÷ 5?", answer: "10" },
 ];
 
 export async function initializeFishingGame(
@@ -28,7 +36,7 @@ export async function initializeFishingGame(
   const gameState = {
     score: 0,
     fishCaught: 0,
-    timeLeft: 60,
+    timeLeft: 120,
     gameOver: false,
     paused: false,
     currentQuestion: null as any,
@@ -39,6 +47,9 @@ export async function initializeFishingGame(
     castPower: 0,
     charging: false,
     callbacks,
+    quizQuestions: [] as any[],
+    currentQuizIndex: 0,
+    totalQuizQuestions: 0,
   };
 
   // Create water surface
@@ -54,6 +65,13 @@ export async function initializeFishingGame(
   underwater.drawRect(0, 205, app.screen.width, app.screen.height - 205);
   underwater.endFill();
   app.stage.addChild(underwater);
+
+  // Fish and bubbles containers FIRST (behind everything)
+  const fishContainer = new Container();
+  app.stage.addChild(fishContainer);
+
+  const bubblesContainer = new Container();
+  app.stage.addChild(bubblesContainer);
 
   // Create boat
   const boat = new Container();
@@ -96,26 +114,24 @@ export async function initializeFishingGame(
   rod.lineTo(30, -80);
   boat.addChild(rod);
 
-  // Fishing line
-  const fishingLine = new Graphics();
-  app.stage.addChild(fishingLine);
+  // Fishing line container - on top of fish
+  const lineContainer = new Container();
+  app.stage.addChild(lineContainer);
 
-  // Hook
+  const fishingLine = new Graphics();
+  lineContainer.addChild(fishingLine);
+
+  // Hook - on top of line
   const hook = new Graphics();
-  hook.beginFill(0xcccccc);
-  hook.drawCircle(0, 0, 5);
+  hook.beginFill(0xFFFFFF);
+  hook.drawCircle(0, 0, 6);
   hook.endFill();
-  hook.lineStyle(2, 0x999999);
-  hook.arc(0, 5, 8, 0, Math.PI);
+  hook.beginFill(0xC0C0C0);
+  hook.drawCircle(0, 0, 4);
+  hook.endFill();
   hook.x = boat.x + 30;
   hook.y = boat.y - 80;
   app.stage.addChild(hook);
-
-  const fishContainer = new Container();
-  app.stage.addChild(fishContainer);
-
-  const bubblesContainer = new Container();
-  app.stage.addChild(bubblesContainer);
 
   // Power bar
   const powerBarBg = new Graphics();
@@ -145,7 +161,7 @@ export async function initializeFishingGame(
   app.stage.addChild(scoreText);
 
   const timeText = new Text({
-    text: `Time: 60s`,
+    text: `Time: 120s`,
     style: { fontFamily: 'Arial', fontSize: 24, fill: 0xffff00, fontWeight: 'bold' }
   });
   timeText.x = app.screen.width - 150;
@@ -153,7 +169,7 @@ export async function initializeFishingGame(
   app.stage.addChild(timeText);
 
   const instructionsText = new Text({
-    text: 'SPACE: Cast/Reel | Catch 3 fish to answer a question!',
+    text: 'SPACE: Cast/Reel | Catch fish to answer questions!',
     style: { fontFamily: 'Arial', fontSize: 18, fill: 0xffffff }
   });
   instructionsText.anchor.set(0.5);
@@ -227,7 +243,7 @@ export async function initializeFishingGame(
   let lastTime = Date.now();
   const keys: any = {};
 
-  // Fish class
+  // Fish class with MORE VARIETY
   class Fish {
     container: Container;
     graphics: Graphics;
@@ -238,6 +254,7 @@ export async function initializeFishingGame(
     caught: boolean;
     direction: number;
     type: number;
+    fishType: string;
 
     constructor() {
       this.container = new Container();
@@ -246,55 +263,94 @@ export async function initializeFishingGame(
       this.value = 0;
       this.caught = false;
 
-      if (this.type < 0.4) {
+      // More fish types with different sizes and speeds
+      if (this.type < 0.2) {
+        // Tiny fast fish
+        this.fishType = "tiny";
+        this.size = 15;
+        this.color = 0x00CED1;
+        this.value = 5;
+        this.speed = 4;
+      } else if (this.type < 0.4) {
+        // Small fish
+        this.fishType = "small";
         this.size = 20;
         this.color = 0xff6b6b;
         this.value = 10;
-        this.speed = 2;
-      } else if (this.type < 0.7) {
+        this.speed = 3;
+      } else if (this.type < 0.6) {
+        // Medium fish
+        this.fishType = "medium";
         this.size = 30;
         this.color = 0x4ecdc4;
         this.value = 20;
-        this.speed = 1.5;
-      } else {
-        this.size = 40;
+        this.speed = 2;
+      } else if (this.type < 0.8) {
+        // Large fish
+        this.fishType = "large";
+        this.size = 45;
         this.color = 0xf39c12;
+        this.value = 30;
+        this.speed = 1.2;
+      } else {
+        // Huge slow fish
+        this.fishType = "huge";
+        this.size = 60;
+        this.color = 0x9b59b6;
         this.value = 50;
-        this.speed = 1;
+        this.speed = 0.8;
       }
 
       this.direction = Math.random() > 0.5 ? 1 : -1;
       this.drawFish();
       this.container.addChild(this.graphics);
-      this.container.x = this.direction > 0 ? -50 : app.screen.width + 50;
+      this.container.x = this.direction > 0 ? -100 : app.screen.width + 100;
       this.container.y = 250 + Math.random() * (app.screen.height - 300);
       fishContainer.addChild(this.container);
     }
 
     drawFish() {
       this.graphics.clear();
+      
+      // Body
       this.graphics.beginFill(this.color);
       this.graphics.drawEllipse(0, 0, this.size, this.size * 0.6);
       this.graphics.endFill();
+      
+      // Tail
       this.graphics.beginFill(this.color);
       this.graphics.moveTo(-this.size * this.direction, 0);
       this.graphics.lineTo(-this.size * 1.5 * this.direction, -this.size * 0.4);
       this.graphics.lineTo(-this.size * 1.5 * this.direction, this.size * 0.4);
       this.graphics.closePath();
       this.graphics.endFill();
+      
+      // Eye white
       this.graphics.beginFill(0xffffff);
       this.graphics.drawCircle(this.size * 0.5 * this.direction, -this.size * 0.2, this.size * 0.15);
       this.graphics.endFill();
+      
+      // Eye pupil
       this.graphics.beginFill(0x000000);
       this.graphics.drawCircle(this.size * 0.5 * this.direction, -this.size * 0.2, this.size * 0.08);
       this.graphics.endFill();
+
+      // Stripes for variety
+      if (this.fishType === "large" || this.fishType === "huge") {
+        this.graphics.lineStyle(2, 0x000000, 0.3);
+        for (let i = 0; i < 3; i++) {
+          const x = (i - 1) * this.size * 0.3;
+          this.graphics.moveTo(x, -this.size * 0.5);
+          this.graphics.lineTo(x, this.size * 0.5);
+        }
+      }
     }
 
     update(delta: number) {
       if (!this.caught) {
         this.container.x += this.speed * this.direction * delta;
         this.container.y += Math.sin(Date.now() / 500 + this.container.x / 100) * 0.5;
-        return this.container.x > -100 && this.container.x < app.screen.width + 100;
+        return this.container.x > -150 && this.container.x < app.screen.width + 150;
       }
       return true;
     }
@@ -303,7 +359,7 @@ export async function initializeFishingGame(
       if (this.caught) return false;
       const dx = this.container.x - hookX;
       const dy = this.container.y - hookY;
-      return Math.sqrt(dx * dx + dy * dy) < this.size;
+      return Math.sqrt(dx * dx + dy * dy) < (this.size * 0.8);
     }
 
     catch() {
@@ -346,14 +402,26 @@ export async function initializeFishingGame(
   }
 
   function castLine() {
+    if (gameState.lineOut) return;
+    
     gameState.lineOut = true;
+    gameState.reeling = false;
     gameState.hookY = boat.y - 80;
+    hook.x = boat.x + 30;
+    hook.y = gameState.hookY;
+    
     const targetDepth = 200 + (gameState.castPower / 100) * (app.screen.height - 250);
 
     const castInterval = setInterval(() => {
+      if (gameState.reeling) {
+        clearInterval(castInterval);
+        return;
+      }
+      
       gameState.hookY += 10;
       hook.y = gameState.hookY;
-      if (gameState.hookY >= targetDepth || gameState.reeling) {
+      
+      if (gameState.hookY >= targetDepth) {
         clearInterval(castInterval);
       }
     }, 16);
@@ -371,10 +439,7 @@ export async function initializeFishingGame(
 
       if (gameState.hookY <= boat.y - 80) {
         clearInterval(reelInterval);
-        gameState.lineOut = false;
-        gameState.reeling = false;
-        hook.y = boat.y - 80;
-
+        
         if (gameState.caughtFish) {
           gameState.score += gameState.caughtFish.value;
           gameState.fishCaught++;
@@ -385,22 +450,48 @@ export async function initializeFishingGame(
 
           callbacks.onScoreUpdate?.(gameState.score, gameState.fishCaught);
 
-          if (gameState.fishCaught % 3 === 0) {
-            showQuiz();
-          }
+          // Show quiz after catching ANY fish
+          showQuiz();
         }
+        
+        gameState.lineOut = false;
+        gameState.reeling = false;
         gameState.castPower = 0;
+        hook.y = boat.y - 80;
+        hook.x = boat.x + 30;
       }
     }, 16);
   }
 
   function showQuiz() {
     gameState.paused = true;
-    gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+    
+    // Generate 3-5 random questions for this quiz
+    const numQuestions = Math.floor(Math.random() * 3) + 3; // 3 to 5
+    gameState.totalQuizQuestions = numQuestions;
+    gameState.currentQuizIndex = 0;
+    gameState.quizQuestions = [];
+    
+    // Get random unique questions
+    const shuffled = [...questions].sort(() => Math.random() - 0.5);
+    gameState.quizQuestions = shuffled.slice(0, numQuestions);
+    
+    showNextQuestion();
+  }
+
+  function showNextQuestion() {
+    if (gameState.currentQuizIndex >= gameState.totalQuizQuestions) {
+      // Quiz complete
+      hideQuiz();
+      return;
+    }
+    
+    gameState.currentQuestion = gameState.quizQuestions[gameState.currentQuizIndex];
     userAnswer = '';
+    
     quizOverlay.visible = true;
     quizBox.visible = true;
-    quizQuestionText.text = "🎣 FISHING BREAK! 🎣\n\n" + gameState.currentQuestion.question;
+    quizQuestionText.text = `🎣 FISHING BREAK! 🎣\n\nQuestion ${gameState.currentQuizIndex + 1} of ${gameState.totalQuizQuestions}\n\n${gameState.currentQuestion.question}`;
     quizQuestionText.visible = true;
     quizInstructionText.visible = true;
     quizAnswerText.text = '';
@@ -420,21 +511,28 @@ export async function initializeFishingGame(
 
   function checkAnswer() {
     const correct = userAnswer.toLowerCase().trim() === gameState.currentQuestion.answer.toLowerCase();
+    
     if (correct) {
-      quizFeedbackText.text = '✓ Correct! Bonus: +10s!';
+      quizFeedbackText.text = '✓ Correct! +10s bonus!';
       quizFeedbackText.style.fill = 0x00aa00;
       quizFeedbackText.visible = true;
       gameState.timeLeft += 10;
       callbacks.onQuestionComplete(true);
-      setTimeout(() => hideQuiz(), 1500);
+      
+      setTimeout(() => {
+        gameState.currentQuizIndex++;
+        showNextQuestion();
+      }, 1000);
     } else {
-      quizFeedbackText.text = '✗ Wrong! Try again!';
+      quizFeedbackText.text = `✗ Wrong! Answer: ${gameState.currentQuestion.answer}`;
       quizFeedbackText.style.fill = 0xff0000;
       quizFeedbackText.visible = true;
-      userAnswer = '';
-      quizAnswerText.text = '';
       callbacks.onQuestionComplete(false);
-      setTimeout(() => { quizFeedbackText.visible = false; }, 1000);
+      
+      setTimeout(() => {
+        gameState.currentQuizIndex++;
+        showNextQuestion();
+      }, 2000);
     }
   }
 
@@ -451,13 +549,18 @@ export async function initializeFishingGame(
         quizAnswerText.text = userAnswer;
       }
     } else {
-      if (e.key === ' ' && !keys[' ']) {
+      if (e.key === ' ') {
         e.preventDefault();
-        keys[' '] = true;
-        if (!gameState.lineOut && !gameState.gameOver) {
-          gameState.charging = true;
-        } else if (gameState.lineOut && !gameState.reeling) {
-          gameState.reeling = true;
+        
+        if (!keys[' '] && !gameState.gameOver) {
+          keys[' '] = true;
+          
+          if (!gameState.lineOut && !gameState.charging) {
+            gameState.charging = true;
+          } else if (gameState.lineOut && !gameState.reeling) {
+            gameState.reeling = true;
+            reelIn();
+          }
         }
       }
     }
@@ -505,19 +608,25 @@ export async function initializeFishingGame(
     powerBarFill.drawRect(25, 125, (gameState.castPower / 100) * 190, 20);
     powerBarFill.endFill();
 
-    // Fishing line
+    // Draw fishing line - ALWAYS VISIBLE with high contrast
     fishingLine.clear();
-    fishingLine.lineStyle(2, 0x654321);
+    fishingLine.lineStyle(5, 0xFFFFFF, 1); // WHITE, thick, fully opaque
+    fishingLine.moveTo(boat.x + 30, boat.y - 80);
+    fishingLine.lineTo(hook.x, hook.y);
+    
+    // Add a shadow/outline to make it even more visible
+    fishingLine.lineStyle(3, 0x000000, 0.5);
     fishingLine.moveTo(boat.x + 30, boat.y - 80);
     fishingLine.lineTo(hook.x, hook.y);
 
-    // Spawn
+    // Spawn MORE fish at faster rate
     fishSpawnTimer += ticker.deltaMS;
-    if (fishSpawnTimer > 2000) {
+    if (fishSpawnTimer > 800) { // Reduced from 1500 to 800ms
       fishes.push(new Fish());
       fishSpawnTimer = 0;
     }
 
+    // Spawn bubbles
     bubbleSpawnTimer += ticker.deltaMS;
     if (bubbleSpawnTimer > 200) {
       bubbles.push(new Bubble(Math.random() * app.screen.width, 250 + Math.random() * (app.screen.height - 250)));

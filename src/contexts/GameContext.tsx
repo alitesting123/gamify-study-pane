@@ -44,6 +44,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       ...game,
       id: `game-${Date.now()}`,
       createdAt: new Date().toISOString(),
+      gameType: game.gameType || 'quiz', // Ensure gameType is preserved
     };
     setUserGames((prev) => [newGame, ...prev]);
   };

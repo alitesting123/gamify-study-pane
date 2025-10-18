@@ -2,6 +2,7 @@
 import { Application } from 'pixi.js';
 import { initializePlaneGame } from './pixiGames/planeGame';
 import { initializeFishingGame } from './pixiGames/fishingGame';
+import { initializeCircuitGame } from './pixiGames/circuitGame';
 
 interface GameCallbacks {
   onQuestionComplete: (isCorrect: boolean) => void;
@@ -9,7 +10,7 @@ interface GameCallbacks {
   onScoreUpdate?: (score: number, secondary?: number) => void;
 }
 
-export type GameType = 'plane' | 'fishing' | 'quiz';
+export type GameType = 'plane' | 'fishing' | 'circuit' | 'quiz';
 
 let app: Application | null = null;
 
@@ -20,7 +21,7 @@ export async function initializeGame(
 ): Promise<Application> {
   try {
     app = new Application();
-    const bgColor = gameType === 'fishing' ? '#1e3a5f' : '#87CEEB';
+    const bgColor = gameType === 'fishing' ? '#1e3a5f' : gameType === 'circuit' ? '#0a1628' : '#87CEEB';
     
     await app.init({
       background: bgColor,
@@ -38,6 +39,9 @@ export async function initializeGame(
         break;
       case 'fishing':
         await initializeFishingGame(app, callbacks);
+        break;
+      case 'circuit':
+        await initializeCircuitGame(app, callbacks);
         break;
       default:
         await initializePlaneGame(app, callbacks);

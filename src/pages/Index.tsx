@@ -20,7 +20,7 @@ const gameTemplates: GameTemplate[] = [
     difficulty: "Medium",
     estimatedTime: "15-20 min",
     completionRate: 85,
-    gameType: 'plane' // Plane game
+    gameType: 'plane'
   },
   {
     id: 2,
@@ -30,47 +30,20 @@ const gameTemplates: GameTemplate[] = [
     difficulty: "Easy",
     estimatedTime: "10-15 min",
     completionRate: 92,
-    gameType: 'fishing' // Fishing game
+    gameType: 'fishing'
   },
   {
     id: 3,
-    title: "Math Quiz Challenge",
-    description: "Test your math skills with dynamic problem-solving challenges",
-    category: "Mathematics",
-    difficulty: "Medium",
-    estimatedTime: "15-20 min",
-    gameType: 'quiz'
-  },
-  {
-    id: 4,
-    title: "Vocabulary Builder",
-    description: "Expand your vocabulary through interactive word games",
-    category: "Language",
-    difficulty: "Easy",
-    estimatedTime: "10-15 min",
-    completionRate: 78,
-    gameType: 'quiz'
-  },
-  {
-    id: 5,
-    title: "History Timeline",
-    description: "Place historical events in the correct chronological order",
-    category: "History",
+    title: "Circuit Runner",
+    description: "Navigate through electric circuits, dodge obstacles at high speed!",
+    category: "Action",
     difficulty: "Hard",
-    estimatedTime: "20-25 min",
-    gameType: 'quiz'
+    estimatedTime: "10-15 min",
+    completionRate: 75,
+    gameType: 'circuit'  // NEW
   },
-  {
-    id: 6,
-    title: "Science Lab",
-    description: "Conduct virtual experiments and learn scientific principles",
-    category: "Science",
-    difficulty: "Medium",
-    estimatedTime: "15-20 min",
-    gameType: 'quiz'
-  },
+  // ... rest of templates
 ];
-
 const Index = () => {
   const [currentView, setCurrentView] = useState<string>("library");
   const [selectedTemplate, setSelectedTemplate] = useState<GameTemplate | null>(null);

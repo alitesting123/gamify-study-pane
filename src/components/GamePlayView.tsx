@@ -24,7 +24,11 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
 
   const game = userGames.find((g) => g.id === selectedGameId);
   const totalQuestions = game?.questionsCount || 10;
-  const gameType: GameType = (game?.gameType as GameType) || 'plane';
+  const gameType: GameType = (game?.gameType as GameType) || 'quiz';
+  
+  // Optional: Add debug logging
+  console.log('GamePlayView - Selected Game:', game);
+  console.log('GamePlayView - Game Type:', gameType);
 
   useEffect(() => {
     if (!canvasRef.current || !game) return;

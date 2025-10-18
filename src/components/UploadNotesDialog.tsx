@@ -82,86 +82,55 @@ export const UploadNotesDialog = ({
     setUploadProgress(0);
   };
 
-  const handleUpload = async () => {
-    if (!file || !gameTemplate) {
-      toast.error("Please select a file to upload");
-      return;
+  // src/components/UploadNotesDialog.tsx
+// This is the key fix - ensure gameType is passed when creating a user game
+
+const handleUpload = async () => {
+  if (!file || !gameTemplate) {
+    toast.error("Please select a file to upload");
+    return;
+  }
+
+  // FOR DEVELOPMENT: Simulate file processing
+  try {
+    // Simulate upload progress
+    for (let i = 0; i <= 100; i += 10) {
+      setUploadProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    // FOR PRODUCTION: Use this when backend is ready
-    /*
-    try {
-      const result = await processNotes.mutateAsync({
-        request: {
-          file,
-          templateId: gameTemplate.id,
-        },
-        onProgress: setUploadProgress,
-      });
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Add the game with data from backend
-      addUserGame({
-        templateId: gameTemplate.id,
-        title: gameTemplate.title,
-        description: gameTemplate.description,
-        category: gameTemplate.category,
-        difficulty: gameTemplate.difficulty,
-        questionsCount: result.data.questionsGenerated,
-        maxPoints: result.data.questionsGenerated * 10,
-        currentProgress: 0,
-      });
+    const questionsCount = Math.floor(Math.random() * 10) + 15; // 15-25 questions
+    const maxPoints = questionsCount * 10;
 
-      toast.success("Game created successfully!", {
-        description: "Check 'My Games' in the sidebar to play.",
-      });
-      
-      onOpenChange(false);
-      setFile(null);
-      setUploadProgress(0);
-    } catch (error) {
-      // Error is handled by the mutation
-    }
-    */
-
-    // FOR DEVELOPMENT: Simulate file processing
-    try {
-      // Simulate upload progress
-      for (let i = 0; i <= 100; i += 10) {
-        setUploadProgress(i);
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const questionsCount = Math.floor(Math.random() * 10) + 15; // 15-25 questions
-      const maxPoints = questionsCount * 10;
-
-      addUserGame({
-        templateId: gameTemplate.id,
-        title: gameTemplate.title,
-        description: gameTemplate.description,
-        category: gameTemplate.category,
-        difficulty: gameTemplate.difficulty,
-        questionsCount,
-        maxPoints,
-        currentProgress: 0,
-      });
-
-      toast.success("Game created successfully!", {
-        description: "Check 'My Games' in the sidebar to play.",
-      });
-      
-      onOpenChange(false);
-      setFile(null);
-      setUploadProgress(0);
-    } catch (error) {
-      toast.error("Failed to process file", {
-        description: "Please try again later."
-      });
-      setUploadProgress(0);
-    }
-  };
+    // FIX: Make sure to pass the gameType from the template
+    addUserGame({
+      templateId: gameTemplate.id,
+      title: gameTemplate.title,
+      description: gameTemplate.description,
+      category: gameTemplate.category,
+      difficulty: gameTemplate.difficulty,
+      questionsCount,
+      maxPoints,
+      currentProgress: 0,
+      gameType: gameTemplate.gameType || 'quiz', // Pass gameType from template
+    });
+    toast.success("Game created successfully!", {
+      description: "Check 'My Games' in the sidebar to play.",
+    });
+    
+    onOpenChange(false);
+    setFile(null);
+    setUploadProgress(0);
+  } catch (error) {
+    toast.error("Failed to process file", {
+      description: "Please try again later."
+    });
+    setUploadProgress(0);
+  }
+};
 
   const handleClose = () => {
     if (uploadProgress > 0 && uploadProgress < 100) {
