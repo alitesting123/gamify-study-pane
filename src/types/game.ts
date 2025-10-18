@@ -1,3 +1,4 @@
+// src/types/game.ts
 export interface GameTemplate {
   id: number;
   title: string;
@@ -6,6 +7,7 @@ export interface GameTemplate {
   difficulty: "Easy" | "Medium" | "Hard";
   estimatedTime: string;
   completionRate?: number;
+  gameType?: 'plane' | 'fishing' | 'quiz'; // Add game type
 }
 
 export interface UserGame {
@@ -20,6 +22,7 @@ export interface UserGame {
   currentProgress: number;
   completedAt?: string;
   createdAt: string;
+  gameType?: 'plane' | 'fishing' | 'quiz'; // Add game type
 }
 
 export interface UserProgress {

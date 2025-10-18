@@ -9,57 +9,65 @@ import { Input } from "@/components/ui/input";
 import { Search, TrendingUp } from "lucide-react";
 import { GameTemplate } from "@/types/game";
 
+// Add this to your existing gameTemplates array in src/pages/Index.tsx
+
 const gameTemplates: GameTemplate[] = [
   {
     id: 1,
+    title: "Sky Pilot Adventure",
+    description: "Fly through the skies, avoid obstacles, and answer questions when you hit birds!",
+    category: "Action",
+    difficulty: "Medium",
+    estimatedTime: "15-20 min",
+    completionRate: 85,
+    gameType: 'plane' // Plane game
+  },
+  {
+    id: 2,
+    title: "Deep Sea Fishing",
+    description: "Cast your line, catch fish, and answer questions for bonus time!",
+    category: "Casual",
+    difficulty: "Easy",
+    estimatedTime: "10-15 min",
+    completionRate: 92,
+    gameType: 'fishing' // Fishing game
+  },
+  {
+    id: 3,
     title: "Math Quiz Challenge",
     description: "Test your math skills with dynamic problem-solving challenges",
     category: "Mathematics",
     difficulty: "Medium",
     estimatedTime: "15-20 min",
-    completionRate: 85,
+    gameType: 'quiz'
   },
   {
-    id: 2,
+    id: 4,
     title: "Vocabulary Builder",
     description: "Expand your vocabulary through interactive word games",
     category: "Language",
     difficulty: "Easy",
     estimatedTime: "10-15 min",
-    completionRate: 92,
+    completionRate: 78,
+    gameType: 'quiz'
   },
   {
-    id: 3,
+    id: 5,
     title: "History Timeline",
     description: "Place historical events in the correct chronological order",
     category: "History",
     difficulty: "Hard",
     estimatedTime: "20-25 min",
+    gameType: 'quiz'
   },
   {
-    id: 4,
+    id: 6,
     title: "Science Lab",
     description: "Conduct virtual experiments and learn scientific principles",
     category: "Science",
     difficulty: "Medium",
     estimatedTime: "15-20 min",
-  },
-  {
-    id: 5,
-    title: "Geography Explorer",
-    description: "Discover countries, capitals, and geographical features",
-    category: "Geography",
-    difficulty: "Easy",
-    estimatedTime: "10-15 min",
-    completionRate: 78,
-  },
-  {
-    id: 6,
-    title: "Logic Puzzles",
-    description: "Sharpen your critical thinking with challenging logic problems",
-    category: "Logic",
-    difficulty: "Hard",
-    estimatedTime: "20-30 min",
+    gameType: 'quiz'
   },
 ];
 

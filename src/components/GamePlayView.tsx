@@ -1,11 +1,12 @@
 // src/components/GamePlayView.tsx
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useGameContext } from "@/contexts/GameContext";
 import { initializeGame, cleanupGame } from "@/lib/pixiGame";
+import type { GameType } from "@/lib/pixiGame";
 
 interface GamePlayViewProps {
   onBack: () => void;
@@ -18,38 +19,46 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
   const [gameProgress, setGameProgress] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [score, setScore] = useState(0);
+  const [secondaryStat, setSecondaryStat] = useState(0); // Distance for plane, fish caught for fishing
   const { userGames, selectedGameId, updateProgress } = useGameContext();
 
   const game = userGames.find((g) => g.id === selectedGameId);
   const totalQuestions = game?.questionsCount || 10;
+  const gameType: GameType = (game?.gameType as GameType) || 'plane';
 
   useEffect(() => {
     if (!canvasRef.current || !game) return;
 
-    // Initialize PixiJS game
+    // Initialize PixiJS game with the appropriate game type
     const gameInstance = initializeGame(canvasRef.current, {
       onQuestionComplete: (isCorrect: boolean) => {
         if (isCorrect) {
           setScore((prev) => prev + 10);
+          setCurrentQuestion((prev) => prev + 1);
+          setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
         }
-        setCurrentQuestion((prev) => prev + 1);
-        setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
       },
       onGameComplete: (finalScore: number) => {
         updateProgress(finalScore);
-        // Show completion dialog
+        // Could show completion dialog here
       },
-    });
+      onScoreUpdate: (newScore: number, secondary?: number) => {
+        setScore(newScore);
+        if (secondary !== undefined) {
+          setSecondaryStat(secondary);
+        }
+      },
+    }, gameType);
 
     // Cleanup on unmount
     return () => {
       cleanupGame();
     };
-  }, [game]);
+  }, [game, gameType]);
 
   const handlePausePlay = () => {
     setIsPlaying(!isPlaying);
-    // Add pause/play logic for PixiJS
+    // Add pause/play logic for PixiJS if needed
   };
 
   const handleMuteToggle = () => {
@@ -65,6 +74,9 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
     );
   }
 
+  // Different labels based on game type
+  const secondaryStatLabel = gameType === 'fishing' ? 'Fish Caught' : 'Distance';
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Top Bar */}
@@ -77,7 +89,7 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
             <div>
               <h2 className="text-lg font-semibold">{game.title}</h2>
               <p className="text-sm text-muted-foreground">
-                Question {currentQuestion} of {totalQuestions}
+                {gameType === 'fishing' ? 'Time Challenge' : `Question ${currentQuestion} of ${totalQuestions}`}
               </p>
             </div>
           </div>
@@ -87,6 +99,13 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
               <p className="text-sm text-muted-foreground">Score</p>
               <p className="text-2xl font-bold text-primary">{score}</p>
             </Card>
+
+            {secondaryStat > 0 && (
+              <Card className="px-4 py-2">
+                <p className="text-sm text-muted-foreground">{secondaryStatLabel}</p>
+                <p className="text-2xl font-bold text-secondary">{secondaryStat}</p>
+              </Card>
+            )}
 
             <Button
               variant="outline"
@@ -114,14 +133,16 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mt-4">
-          <Progress value={gameProgress} className="h-2" />
-        </div>
+        {/* Progress Bar - only show for non-timed games */}
+        {gameType !== 'fishing' && (
+          <div className="mt-4">
+            <Progress value={gameProgress} className="h-2" />
+          </div>
+        )}
       </div>
 
       {/* Game Canvas */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-sky-400 to-sky-200">
         <div 
           ref={canvasRef} 
           className="w-full h-full"
