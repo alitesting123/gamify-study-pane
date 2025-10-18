@@ -1,10 +1,11 @@
 // src/components/DashboardLayout.tsx
 import { useState } from "react";
-import { Moon, Sun, Menu } from "lucide-react";
+import { Moon, Sun, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { UserProgressDropdown } from "./UserProgressDropdown";
+import { authService } from "@/services/authService";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -19,6 +20,12 @@ export const DashboardLayout = ({ children, currentView, onViewChange }: Dashboa
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     document.documentElement.classList.toggle("dark");
+  };
+
+  const handleLogout = () => {
+    if (confirm('Are you sure you want to logout?')) {
+      authService.logout();
+    }
   };
 
   return (
@@ -40,7 +47,7 @@ export const DashboardLayout = ({ children, currentView, onViewChange }: Dashboa
                 </h1>
               </div>
               
-              {/* Right side - User Progress, Theme Toggle, and Avatar */}
+              {/* Right side - User Progress, Theme Toggle, Logout, and Avatar */}
               <div className="flex items-center gap-3">
                 <UserProgressDropdown />
                 
@@ -49,6 +56,7 @@ export const DashboardLayout = ({ children, currentView, onViewChange }: Dashboa
                   size="icon"
                   onClick={toggleTheme}
                   className="rounded-full"
+                  title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
                 >
                   {theme === "light" ? (
                     <Moon className="h-5 w-5" />
@@ -57,8 +65,18 @@ export const DashboardLayout = ({ children, currentView, onViewChange }: Dashboa
                   )}
                 </Button>
                 
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="rounded-full hover:bg-destructive/10 hover:text-destructive"
+                  title="Logout"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+                
                 <div className="w-10 h-10 rounded-full bg-gradient-card flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity">
-                  <span className="text-white font-semibold">JS</span>
+                  <span className="text-white font-semibold">IF</span>
                 </div>
               </div>
             </div>

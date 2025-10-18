@@ -7,7 +7,7 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: config.apiUrl,
+      baseURL: config.apiUrl || 'http://localhost:8000/api',  // ← Add fallback
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
@@ -18,10 +18,10 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor
+    // Request interceptor - Add auth token
     this.client.interceptors.request.use(
       (config) => {
-        // Add auth token if available
+        // Get token from localStorage
         const token = localStorage.getItem('authToken');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -33,15 +33,43 @@ class ApiClient {
       }
     );
 
-    // Response interceptor
+    // Response interceptor - Handle auth errors
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
-          // Handle unauthorized - redirect to login
-          localStorage.removeItem('authToken');
-          window.location.href = '/login';
+        const originalRequest = error.config;
+
+        // If 401 and not already retried, try to refresh token
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          try {
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (!refreshToken) {
+              throw new Error('No refresh token');
+            }
+
+            // Try to refresh the token
+            const response = await axios.post(
+              `${config.apiUrl}/auth/refresh/`,
+              { refresh: refreshToken }
+            );
+
+            const newAccessToken = response.data.access;
+            localStorage.setItem('authToken', newAccessToken);
+
+            // Retry original request with new token
+            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+            return this.client(originalRequest);
+          } catch (refreshError) {
+            // Refresh failed, redirect to login
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+            window.location.href = '/login';
+            return Promise.reject(refreshError);
+          }
         }
+
         return Promise.reject(error);
       }
     );
