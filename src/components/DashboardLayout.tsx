@@ -3,12 +3,15 @@ import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { LevelProgressBar } from "./LevelProgressBar";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  currentView: string;
+  onViewChange: (view: string) => void;
 }
 
-export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ children, currentView, onViewChange }: DashboardLayoutProps) => {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   const toggleTheme = () => {
@@ -20,7 +23,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <DashboardSidebar />
+        <DashboardSidebar currentView={currentView} onViewChange={onViewChange} />
         
         <main className="flex-1 flex flex-col">
           <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
@@ -29,7 +32,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <span className="text-white font-bold text-xl">G</span>
               </div>
               <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                GameLearn
+                PlayStudy
               </h1>
             </div>
             
@@ -52,6 +55,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </div>
             </div>
           </header>
+          
+          <LevelProgressBar />
           
           <div className="flex-1 p-6">
             {children}

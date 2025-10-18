@@ -11,19 +11,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useGameContext } from "@/contexts/GameContext";
+import { GameTemplate } from "@/types/game";
 
 interface UploadNotesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  gameTitle: string;
+  gameTemplate: GameTemplate | null;
 }
 
 export const UploadNotesDialog = ({
   open,
   onOpenChange,
-  gameTitle,
+  gameTemplate,
 }: UploadNotesDialogProps) => {
   const [file, setFile] = useState<File | null>(null);
+  const { addUserGame } = useGameContext();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -32,14 +35,28 @@ export const UploadNotesDialog = ({
   };
 
   const handleUpload = () => {
-    if (!file) {
+    if (!file || !gameTemplate) {
       toast.error("Please select a file to upload");
       return;
     }
 
-    // Simulate upload process
+    // Create a new user game
+    const questionsCount = Math.floor(Math.random() * 10) + 15; // 15-25 questions
+    const maxPoints = questionsCount * 10;
+
+    addUserGame({
+      templateId: gameTemplate.id,
+      title: gameTemplate.title,
+      description: gameTemplate.description,
+      category: gameTemplate.category,
+      difficulty: gameTemplate.difficulty,
+      questionsCount,
+      maxPoints,
+      currentProgress: 0,
+    });
+
     toast.success("Notes uploaded successfully! Processing...", {
-      description: "Your game will be ready in a few moments.",
+      description: "Your game is now ready to play! Check 'My Games' in the sidebar.",
     });
     
     onOpenChange(false);
@@ -55,7 +72,7 @@ export const UploadNotesDialog = ({
             Upload Study Notes
           </DialogTitle>
           <DialogDescription>
-            Upload your study materials for <span className="font-semibold text-foreground">{gameTitle}</span>
+            Upload your study materials for <span className="font-semibold text-foreground">{gameTemplate?.title}</span>
           </DialogDescription>
         </DialogHeader>
 

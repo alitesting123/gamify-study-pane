@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { GameCard } from "@/components/GameCard";
+import { GameDetailView } from "@/components/GameDetailView";
 import { UploadNotesDialog } from "@/components/UploadNotesDialog";
 import { Input } from "@/components/ui/input";
 import { Search, TrendingUp } from "lucide-react";
+import { GameTemplate } from "@/types/game";
 
-const gameTemplates = [
+const gameTemplates: GameTemplate[] = [
   {
     id: 1,
     title: "Math Quiz Challenge",
     description: "Test your math skills with dynamic problem-solving challenges",
     category: "Mathematics",
-    difficulty: "Medium" as const,
+    difficulty: "Medium",
     estimatedTime: "15-20 min",
     completionRate: 85,
   },
@@ -20,7 +22,7 @@ const gameTemplates = [
     title: "Vocabulary Builder",
     description: "Expand your vocabulary through interactive word games",
     category: "Language",
-    difficulty: "Easy" as const,
+    difficulty: "Easy",
     estimatedTime: "10-15 min",
     completionRate: 92,
   },
@@ -29,7 +31,7 @@ const gameTemplates = [
     title: "History Timeline",
     description: "Place historical events in the correct chronological order",
     category: "History",
-    difficulty: "Hard" as const,
+    difficulty: "Hard",
     estimatedTime: "20-25 min",
   },
   {
@@ -37,7 +39,7 @@ const gameTemplates = [
     title: "Science Lab",
     description: "Conduct virtual experiments and learn scientific principles",
     category: "Science",
-    difficulty: "Medium" as const,
+    difficulty: "Medium",
     estimatedTime: "15-20 min",
   },
   {
@@ -45,7 +47,7 @@ const gameTemplates = [
     title: "Geography Explorer",
     description: "Discover countries, capitals, and geographical features",
     category: "Geography",
-    difficulty: "Easy" as const,
+    difficulty: "Easy",
     estimatedTime: "10-15 min",
     completionRate: 78,
   },
@@ -54,18 +56,19 @@ const gameTemplates = [
     title: "Logic Puzzles",
     description: "Sharpen your critical thinking with challenging logic problems",
     category: "Logic",
-    difficulty: "Hard" as const,
+    difficulty: "Hard",
     estimatedTime: "20-30 min",
   },
 ];
 
 const Index = () => {
-  const [selectedGame, setSelectedGame] = useState<string>("");
+  const [currentView, setCurrentView] = useState<string>("library");
+  const [selectedTemplate, setSelectedTemplate] = useState<GameTemplate | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleGameClick = (title: string) => {
-    setSelectedGame(title);
+  const handleGameClick = (template: GameTemplate) => {
+    setSelectedTemplate(template);
     setUploadDialogOpen(true);
   };
 
@@ -74,8 +77,22 @@ const Index = () => {
     game.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  return (
-    <DashboardLayout>
+  const renderContent = () => {
+    if (currentView === "game-detail") {
+      return <GameDetailView onBack={() => setCurrentView("library")} />;
+    }
+
+    if (currentView === "notes") {
+      return (
+        <div className="max-w-7xl mx-auto text-center py-12">
+          <h2 className="text-2xl font-bold mb-2">My Notes</h2>
+          <p className="text-muted-foreground">This feature is coming soon!</p>
+        </div>
+      );
+    }
+
+    // Default: library view
+    return (
       <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold mb-2">Welcome back, Student!</h1>
@@ -105,7 +122,7 @@ const Index = () => {
               <GameCard
                 key={game.id}
                 {...game}
-                onClick={() => handleGameClick(game.title)}
+                onClick={() => handleGameClick(game)}
               />
             ))}
           </div>
@@ -119,11 +136,17 @@ const Index = () => {
           </div>
         )}
       </div>
+    );
+  };
+
+  return (
+    <DashboardLayout currentView={currentView} onViewChange={setCurrentView}>
+      {renderContent()}
 
       <UploadNotesDialog
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
-        gameTitle={selectedGame}
+        gameTemplate={selectedTemplate}
       />
     </DashboardLayout>
   );
