@@ -5,11 +5,11 @@ import { GameCard } from "@/components/GameCard";
 import { GameDetailView } from "@/components/GameDetailView";
 import { GamePlayView } from "@/components/GamePlayView";
 import { UploadNotesDialog } from "@/components/UploadNotesDialog";
+import { CreateGamePromptDialog } from "@/components/CreateGamePromptDialog";
 import { Input } from "@/components/ui/input";
-import { Search, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, TrendingUp, Sparkles } from "lucide-react";
 import { GameTemplate } from "@/types/game";
-
-// Add this to your existing gameTemplates array in src/pages/Index.tsx
 
 const gameTemplates: GameTemplate[] = [
   {
@@ -40,14 +40,15 @@ const gameTemplates: GameTemplate[] = [
     difficulty: "Hard",
     estimatedTime: "10-15 min",
     completionRate: 75,
-    gameType: 'circuit'  // NEW
+    gameType: 'circuit'
   },
-  // ... rest of templates
 ];
+
 const Index = () => {
   const [currentView, setCurrentView] = useState<string>("library");
   const [selectedTemplate, setSelectedTemplate] = useState<GameTemplate | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleGameClick = (template: GameTemplate) => {
@@ -96,14 +97,23 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search game templates..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search game templates..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button 
+            onClick={() => setPromptDialogOpen(true)}
+            className="bg-gradient-primary hover:opacity-90 shadow-glow"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Create with AI
+          </Button>
         </div>
 
         <div>
@@ -142,6 +152,11 @@ const Index = () => {
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
         gameTemplate={selectedTemplate}
+      />
+
+      <CreateGamePromptDialog
+        open={promptDialogOpen}
+        onOpenChange={setPromptDialogOpen}
       />
     </DashboardLayout>
   );
