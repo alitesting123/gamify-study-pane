@@ -4,8 +4,8 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { GameCard } from "@/components/GameCard";
 import { GameDetailView } from "@/components/GameDetailView";
 import { GamePlayView } from "@/components/GamePlayView";
-import { UploadNotesDialog } from "@/components/UploadNotesDialog";
-import { CreateGamePromptDialog } from "@/components/CreateGamePromptDialog";
+import { UploadStudyMaterialDialog } from "@/components/UploadStudyMaterialDialog";
+import { CreateNewGameDialog } from "@/components/CreateNewGameDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, Sparkles } from "lucide-react";
@@ -107,7 +107,7 @@ const Index = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button 
+          <Button
             onClick={() => setPromptDialogOpen(true)}
             className="bg-gradient-primary hover:opacity-90 shadow-glow"
           >
@@ -121,7 +121,7 @@ const Index = () => {
             <TrendingUp className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Game Templates</h2>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredGames.map((game) => (
               <GameCard
@@ -148,13 +148,17 @@ const Index = () => {
     <DashboardLayout currentView={currentView} onViewChange={setCurrentView}>
       {renderContent()}
 
-      <UploadNotesDialog
-        open={uploadDialogOpen}
-        onOpenChange={setUploadDialogOpen}
-        gameTemplate={selectedTemplate}
-      />
+      {/* Feature 2: Upload Study Material Dialog */}
+      {selectedTemplate && (
+        <UploadStudyMaterialDialog
+          open={uploadDialogOpen}
+          onOpenChange={setUploadDialogOpen}
+          gameTemplate={selectedTemplate}
+        />
+      )}
 
-      <CreateGamePromptDialog
+      {/* Feature 1: Create New Game Dialog */}
+      <CreateNewGameDialog
         open={promptDialogOpen}
         onOpenChange={setPromptDialogOpen}
       />
