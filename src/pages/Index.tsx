@@ -78,14 +78,9 @@ const Index = () => {
       );
     }
 
-    // My Notes View
+    // My Notes View - Full page layout with tree and editor
     if (currentView === "notes") {
-      return (
-        <div className="max-w-7xl mx-auto text-center py-12">
-          <h2 className="text-2xl font-bold mb-2">My Notes</h2>
-          <p className="text-muted-foreground">This feature is coming soon!</p>
-        </div>
-      );
+      return null; // Notes view is handled in DashboardLayout
     }
 
     // Default: Library View

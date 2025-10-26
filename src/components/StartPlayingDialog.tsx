@@ -67,7 +67,6 @@ export const StartPlayingDialog = ({
   // Create from Scratch states
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [gameType, setGameType] = useState<'plane' | 'fishing' | 'circuit' | 'quiz'>('plane');
   const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard'>('Medium');
   const [isCreating, setIsCreating] = useState(false);
 
@@ -106,12 +105,11 @@ export const StartPlayingDialog = ({
 
     try {
       console.log('🎮 Creating brand NEW complete game from scratch');
-      console.log('📋 Game Details:', { title, prompt, gameType, difficulty });
+      console.log('📋 Game Details:', { title, prompt, difficulty });
 
       const response = await gameService.createNewGame({
         title,
         prompt,
-        gameType,
         category: extractCategory(prompt),
         difficulty,
       });
@@ -130,7 +128,7 @@ export const StartPlayingDialog = ({
         maxPoints: (newGame.questionsCount || 20) * 10,
         currentProgress: 0,
         createdAt: new Date().toISOString(),
-        gameType: newGame.gameType as 'plane' | 'fishing' | 'circuit' | 'quiz',
+        gameType: (newGame.gameType || 'quiz') as 'plane' | 'fishing' | 'circuit' | 'quiz',
       };
 
       addUserGame(userGame);
@@ -275,7 +273,6 @@ export const StartPlayingDialog = ({
   const resetForm = () => {
     setTitle("");
     setPrompt("");
-    setGameType('plane');
     setDifficulty('Medium');
     setSelectedTemplate(null);
     setFile(null);
@@ -368,35 +365,7 @@ export const StartPlayingDialog = ({
     setError(null);
   };
 
-  const examplePrompts = {
-    plane: "Create a plane game where you fly through clouds collecting math equations. Solve equations to gain altitude and avoid obstacles.",
-    fishing: "Create a fishing game where you catch fish with vocabulary words. Match the word to its definition to reel in the fish.",
-    circuit: "Create a circuit game where you connect logic gates to solve programming puzzles. Complete circuits to power up systems.",
-    quiz: "Create an interactive quiz game about world history with timed questions and power-ups for streak bonuses.",
-  };
-
-  const gameTypeOptions = [
-    {
-      value: 'plane',
-      label: '✈️ Plane Game',
-      description: 'Flying adventure with learning challenges',
-    },
-    {
-      value: 'fishing',
-      label: '🎣 Fishing Game',
-      description: 'Catch and match learning concepts',
-    },
-    {
-      value: 'circuit',
-      label: '⚡ Circuit Game',
-      description: 'Connect concepts and solve puzzles',
-    },
-    {
-      value: 'quiz',
-      label: '📝 Quiz Game',
-      description: 'Traditional Q&A with gamification',
-    },
-  ];
+  const examplePrompt = "Create an interactive learning game about world history. Include questions about major events, important figures, and cultural developments. Make it engaging with timed challenges and bonus points for streaks.";
 
   const difficultyColors = {
     Easy: "bg-success/20 text-success border-success/30",
@@ -675,34 +644,6 @@ export const StartPlayingDialog = ({
               </p>
             </div>
 
-            {/* Game Type Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="gameType" className="text-base font-semibold">
-                Game Type *
-              </Label>
-              <Select
-                value={gameType}
-                onValueChange={(value: any) => setGameType(value)}
-                disabled={isCreating}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select game type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {gameTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium">{option.label}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {option.description}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Difficulty Selection */}
             <div className="space-y-2">
               <Label htmlFor="difficulty" className="text-base font-semibold">
@@ -746,18 +687,18 @@ export const StartPlayingDialog = ({
               </Label>
               <Textarea
                 id="prompt"
-                placeholder={examplePrompts[gameType]}
+                placeholder={examplePrompt}
                 value={prompt}
                 onChange={(e) => {
                   setPrompt(e.target.value);
                   setError(null);
                 }}
-                className="min-h-[150px] resize-none"
+                className="min-h-[180px] resize-none"
                 disabled={isCreating}
                 maxLength={500}
               />
               <p className="text-xs text-muted-foreground">
-                {prompt.length} / 500 characters
+                {prompt.length} / 500 characters • Describe the topic, learning objectives, and any specific requirements
               </p>
             </div>
 
@@ -768,11 +709,11 @@ export const StartPlayingDialog = ({
                 Example
               </Label>
               <button
-                onClick={() => setPrompt(examplePrompts[gameType])}
+                onClick={() => setPrompt(examplePrompt)}
                 disabled={isCreating}
                 className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                "{examplePrompts[gameType]}"
+                "{examplePrompt}"
               </button>
             </div>
 

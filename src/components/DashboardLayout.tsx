@@ -6,6 +6,8 @@ import { DashboardSidebar } from "./DashboardSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { UserProgressDropdown } from "./UserProgressDropdown";
 import { authService } from "@/services/authService";
+import { NotesTree } from "./NotesTree";
+import { NoteEditor } from "./NoteEditor";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -83,11 +85,24 @@ export const DashboardLayout = ({ children, currentView, onViewChange }: Dashboa
           </header>
           
           {/* Main content area */}
-          <div className="flex-1 overflow-auto">
-            <div className="container max-w-7xl mx-auto p-6">
-              {children}
+          {currentView === "notes" ? (
+            // Notes view - Full width with tree sidebar and editor
+            <div className="flex-1 flex overflow-hidden">
+              <div className="w-64 flex-shrink-0">
+                <NotesTree />
+              </div>
+              <div className="flex-1 overflow-auto">
+                <NoteEditor />
+              </div>
             </div>
-          </div>
+          ) : (
+            // Default views - Centered container
+            <div className="flex-1 overflow-auto">
+              <div className="container max-w-7xl mx-auto p-6">
+                {children}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </SidebarProvider>
