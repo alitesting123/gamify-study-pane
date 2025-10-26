@@ -9,7 +9,7 @@ interface GameCardProps {
   difficulty: "Easy" | "Medium" | "Hard";
   estimatedTime: string;
   completionRate?: number;
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 export const GameCard = ({
@@ -29,7 +29,9 @@ export const GameCard = ({
 
   return (
     <Card
-      className="group cursor-pointer overflow-hidden border-2 hover:border-primary transition-all duration-300 hover:shadow-glow hover:scale-105 animate-fade-in"
+      className={`group overflow-hidden border-2 transition-all duration-300 animate-fade-in ${
+        onClick ? "cursor-pointer hover:border-primary hover:shadow-glow hover:scale-105" : ""
+      }`}
       onClick={onClick}
     >
       <div className="h-32 bg-gradient-card relative overflow-hidden">

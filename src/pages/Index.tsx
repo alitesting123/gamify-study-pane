@@ -6,8 +6,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { GameCard } from "@/components/GameCard";
 import { GameDetailView } from "@/components/GameDetailView";
 import { GamePlayView } from "@/components/GamePlayView";
-import { UploadStudyMaterialDialog } from "@/components/UploadStudyMaterialDialog";
-import { CreateNewGameDialog } from "@/components/CreateNewGameDialog";
+import { StartPlayingDialog } from "@/components/StartPlayingDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, Rocket } from "lucide-react";
@@ -50,16 +49,12 @@ const gameTemplates: GameTemplate[] = [
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<string>("library");
-  const [selectedTemplate, setSelectedTemplate] = useState<GameTemplate | null>(null);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [createGameDialogOpen, setCreateGameDialogOpen] = useState(false);
+  const [startPlayingDialogOpen, setStartPlayingDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Handle clicking "Start Playing" on a template card
-  // Opens dialog to upload study materials and generate questions
-  const handleTemplateClick = (template: GameTemplate) => {
-    setSelectedTemplate(template);
-    setUploadDialogOpen(true);
+  // Handle navigation to game detail view
+  const handleNavigateToGameDetail = (gameId: string) => {
+    setCurrentView("game-detail");
   };
 
   const filteredTemplates = gameTemplates.filter((game) =>
@@ -117,11 +112,11 @@ const Index = () => {
               />
             </div>
             <Button
-              onClick={() => setCreateGameDialogOpen(true)}
+              onClick={() => setStartPlayingDialogOpen(true)}
               className="bg-gradient-primary hover:opacity-90 shadow-glow"
             >
               <Rocket className="h-4 w-4 mr-2" />
-              Create New Game
+              Start Playing
             </Button>
           </div>
 
@@ -133,9 +128,9 @@ const Index = () => {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Game Templates</h2>
+              <h2 className="text-xl font-semibold">Available Game Templates</h2>
               <span className="text-sm text-muted-foreground">
-                - Click "Start Playing" to generate questions from your notes
+                - Click "Start Playing" above to begin
               </span>
             </div>
 
@@ -144,7 +139,6 @@ const Index = () => {
                 <GameCard
                   key={game.id}
                   {...game}
-                  onClick={() => handleTemplateClick(game)}
                 />
               ))}
             </div>
@@ -166,19 +160,12 @@ const Index = () => {
     <DashboardLayout currentView={currentView} onViewChange={setCurrentView}>
       {renderContent()}
 
-      {/* Upload Study Material Dialog */}
-      {selectedTemplate && (
-        <UploadStudyMaterialDialog
-          open={uploadDialogOpen}
-          onOpenChange={setUploadDialogOpen}
-          gameTemplate={selectedTemplate}
-        />
-      )}
-
-      {/* Create New Game Dialog */}
-      <CreateNewGameDialog
-        open={createGameDialogOpen}
-        onOpenChange={setCreateGameDialogOpen}
+      {/* Start Playing Dialog - Unified dialog with two flows */}
+      <StartPlayingDialog
+        open={startPlayingDialogOpen}
+        onOpenChange={setStartPlayingDialogOpen}
+        gameTemplates={gameTemplates}
+        onNavigateToGameDetail={handleNavigateToGameDetail}
       />
     </DashboardLayout>
   );
