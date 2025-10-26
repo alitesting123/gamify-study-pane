@@ -1,6 +1,7 @@
 // src/components/UploadStudyMaterialDialog.tsx
-// ✅ FEATURE 2: Generate questions from study materials for existing game templates
-// This is the "Start Playing" feature - uses RAG to create questions
+// ✅ FLOW 2: Generate questions from study materials for EXISTING game templates
+// This is the "Start Playing" feature - uses RAG to create questions for pre-existing games
+// Does NOT create a new browsable game, just adds questions to a template
 
 import { useState } from "react";
 import {
@@ -15,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileText, Sparkles, Loader2, X, CheckCircle2, AlertCircle, BookOpen } from "lucide-react";
+import { Upload, FileText, Sparkles, Loader2, X, CheckCircle2, AlertCircle, BookOpen, Play } from "lucide-react";
 import { toast } from "sonner";
 import { useGameContext } from "@/contexts/GameContext";
 import { GameTemplate } from "@/types/game";
@@ -33,7 +34,7 @@ export const UploadStudyMaterialDialog = ({
   onOpenChange,
   gameTemplate,
 }: UploadStudyMaterialDialogProps) => {
-  const { addUserGame } = useGameContext();
+  const { addUserGame, setSelectedGameId, syncWithBackend } = useGameContext();
   const [file, setFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
@@ -124,7 +125,8 @@ export const UploadStudyMaterialDialog = ({
   };
 
   /**
-   * ✅ Handle uploading file and generating questions
+   * ✅ FLOW 2: Handle uploading file and generating questions for existing template
+   * This creates a playable instance with custom questions, NOT a new browsable game
    */
   const handleStartPlaying = async () => {
     if (!file) {
@@ -136,9 +138,10 @@ export const UploadStudyMaterialDialog = ({
     setError(null);
 
     try {
-      console.log('📤 FEATURE 2: Uploading study material:', file.name);
+      console.log('📤 FLOW 2: Generating questions from study material for existing template');
+      console.log('📋 Template:', gameTemplate.title, '| File:', file.name);
 
-      // ✅ STEP 1: Upload the file
+      // ✅ STEP 1: Upload the study material file
       // API CALL: POST /api/study-materials/upload
       const uploadResponse = await gameService.uploadStudyMaterial(
         file,
@@ -150,55 +153,75 @@ export const UploadStudyMaterialDialog = ({
       const fileId = uploadResponse.data.fileId;
       setUploadedFileId(fileId);
       
-      console.log('✅ File uploaded:', fileId);
-      toast.info("File uploaded! Generating questions...");
+      console.log('✅ File uploaded successfully:', fileId);
+      toast.info("File uploaded! Generating questions from your notes...");
 
       setIsUploading(false);
       setIsGenerating(true);
 
-      // ✅ STEP 2: Generate questions using RAG
+      // ✅ STEP 2: Generate questions using RAG from the study material
       // API CALL: POST /api/games/generate-questions
+      // This extracts concepts from the study material and creates relevant questions
       const generateResponse = await gameService.generateQuestionsFromMaterial({
         templateId: gameTemplate.id,
         fileId: fileId,
         gameType: gameTemplate.gameType || 'quiz',
         questionsCount: 20,
-        difficulty: 'Medium',
+        difficulty: gameTemplate.difficulty || 'Medium',
       });
 
       const gameInstance = generateResponse.data;
-      console.log('✅ Started question generation:', gameInstance);
+      console.log('✅ Started RAG question generation:', gameInstance);
 
       // ✅ STEP 3: Wait for RAG processing to complete
       // API CALL: GET /api/games/generate-questions/{gameId}/status
+      // RAG reads the study material and generates contextual questions
       if (gameInstance.status === 'processing') {
         await gameService.waitForQuestionGeneration(
           gameInstance.id,
           (status) => {
             setGenerationProgress(status.progress);
-            console.log(`⏳ Generating questions: ${status.progress}%`);
+            console.log(`⏳ RAG processing: ${status.progress}%`);
           }
         );
       }
 
       setGenerationProgress(100);
 
-      // ✅ STEP 4: Add game to user's library
-      addUserGame({
+      // ✅ STEP 4: Add game instance to user's library
+      // This creates a PLAYABLE INSTANCE with custom questions
+      // NOT a new browsable game in the library
+      const userGame = {
         id: gameInstance.id,
-        templateId: gameTemplate.id,
-        title: gameInstance.title || `${gameTemplate.title} - ${file.name}`,
-        description: gameInstance.description || `Generated from ${file.name}`,
+        templateId: gameTemplate.id, // Links to original template
+        title: `${gameTemplate.title} - ${file.name.replace(/\.[^/.]+$/, "")}`,
+        description: `Generated from ${file.name}`,
         category: gameTemplate.category,
-        difficulty: (gameInstance.difficulty || 'Medium') as 'Easy' | 'Medium' | 'Hard',
-        questionsCount: gameInstance.questionsCount,
-        maxPoints: gameInstance.questionsCount * 10,
+        difficulty: (gameInstance.difficulty || gameTemplate.difficulty) as 'Easy' | 'Medium' | 'Hard',
+        questionsCount: gameInstance.questionsCount || 20,
+        maxPoints: (gameInstance.questionsCount || 20) * 10,
         currentProgress: 0,
+        createdAt: new Date().toISOString(),
         gameType: (gameTemplate.gameType || 'quiz') as 'plane' | 'fishing' | 'circuit' | 'quiz',
-      });
+      };
 
-      toast.success("Game ready to play!", {
-        description: `Generated ${gameInstance.questionsCount} questions from your study material`,
+      addUserGame(userGame);
+      
+      // Sync with backend
+      await syncWithBackend();
+
+      // Auto-select this game and navigate to it
+      setSelectedGameId(gameInstance.id);
+
+      toast.success("Questions generated successfully!", {
+        description: `Generated ${gameInstance.questionsCount} questions from your study material. Ready to play!`,
+        action: {
+          label: "Play Now",
+          onClick: () => {
+            handleClose();
+            // Game will be shown in sidebar
+          },
+        },
       });
 
       handleClose();
@@ -241,11 +264,14 @@ export const UploadStudyMaterialDialog = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
+            <Play className="h-5 w-5 text-primary" />
             Start Playing: {gameTemplate.title}
           </DialogTitle>
-          <DialogDescription>
-            Upload your study notes to generate questions for this game
+          <DialogDescription className="space-y-1">
+            <p>Upload your study notes to generate custom questions for this game template.</p>
+            <p className="text-xs text-muted-foreground">
+              💡 <strong>Flow 2:</strong> This generates questions from your notes for an existing game.
+            </p>
           </DialogDescription>
         </DialogHeader>
 
@@ -358,7 +384,7 @@ export const UploadStudyMaterialDialog = ({
           {generationProgress === 100 && !isGenerating && (
             <div className="flex items-center gap-2 text-green-600 animate-in fade-in slide-in-from-top-2">
               <CheckCircle2 className="h-4 w-4" />
-              <span className="text-sm font-medium">Questions generated!</span>
+              <span className="text-sm font-medium">Questions generated successfully!</span>
             </div>
           )}
 
@@ -373,8 +399,20 @@ export const UploadStudyMaterialDialog = ({
               <li>RAG AI reads and understands the content</li>
               <li>Key concepts and topics are extracted</li>
               <li>Relevant questions are generated automatically</li>
-              <li>Game is ready to play with your custom questions</li>
+              <li>Questions are added to {gameTemplate.title}</li>
+              <li>Game instance appears in your sidebar ready to play</li>
             </ul>
+          </div>
+
+          {/* Flow Distinction Badge */}
+          <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+            <BookOpen className="h-5 w-5 text-green-600" />
+            <div className="text-sm">
+              <p className="font-semibold text-green-900">Generating Questions for Template</p>
+              <p className="text-xs text-green-700">
+                This adds custom questions to "{gameTemplate.title}", not creating a new browsable game
+              </p>
+            </div>
           </div>
         </div>
 
@@ -399,8 +437,8 @@ export const UploadStudyMaterialDialog = ({
               </>
             ) : (
               <>
-                <Upload className="h-4 w-4 mr-2" />
-                Start Playing
+                <Sparkles className="h-4 w-4 mr-2" />
+                Generate & Play
               </>
             )}
           </Button>

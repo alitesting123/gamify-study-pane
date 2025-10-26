@@ -1,6 +1,6 @@
 // src/components/CreateNewGameDialog.tsx
-// ✅ FEATURE 1: Create brand NEW game (plane, fishing, circuit, quiz)
-// This creates an entirely new game experience, not just questions
+// ✅ FLOW 1: Create brand NEW complete game from scratch
+// This creates an entirely new game that will appear in the game browse page
 
 import { useState } from "react";
 import {
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -21,11 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Loader2, Lightbulb, AlertCircle, Rocket } from "lucide-react";
+import { Sparkles, Loader2, Lightbulb, AlertCircle, Rocket, GamepadIcon } from "lucide-react";
 import { toast } from "sonner";
 import { gameService } from "@/services/gameService";
 import { useGameContext } from "@/contexts/GameContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
 
 interface CreateNewGameDialogProps {
   open: boolean;
@@ -36,16 +38,25 @@ export const CreateNewGameDialog = ({
   open,
   onOpenChange,
 }: CreateNewGameDialogProps) => {
-  const { addUserGame } = useGameContext();
+  const { addUserGame, syncWithBackend } = useGameContext();
+  const navigate = useNavigate();
+  const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
   const [gameType, setGameType] = useState<'plane' | 'fishing' | 'circuit' | 'quiz'>('plane');
+  const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard'>('Medium');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Handle creating a brand new game
+   * ✅ FLOW 1: Handle creating a brand new complete game
+   * This creates a full game experience that appears in the browse page
    */
   const handleCreate = async () => {
+    if (!title.trim()) {
+      toast.error("Please enter a game title");
+      return;
+    }
+
     if (!prompt.trim()) {
       toast.error("Please describe the game you want to create");
       return;
@@ -60,40 +71,62 @@ export const CreateNewGameDialog = ({
     setError(null);
 
     try {
-      console.log('🎮 Creating brand NEW game:', { prompt, gameType });
+      console.log('🎮 FLOW 1: Creating brand NEW complete game from scratch');
+      console.log('📋 Game Details:', { title, prompt, gameType, difficulty });
       
-      // ✅ API CALL: Create brand new game
+      // ✅ API CALL: Create brand new complete game
+      // Backend should: 
+      // 1. Generate game concept and mechanics from prompt
+      // 2. Create game structure with levels/challenges
+      // 3. Generate questions/content
+      // 4. Return complete playable game
       const response = await gameService.createNewGame({
+        title,
         prompt,
         gameType,
         category: extractCategory(prompt),
-        difficulty: 'Medium',
+        difficulty,
       });
 
       const newGame = response.data;
-      console.log('✅ New game created:', newGame);
+      console.log('✅ New complete game created:', newGame);
 
-      // Add to user's library
-      addUserGame({
+      // ✅ Add to user's game library (this makes it appear in browse page)
+      const userGame = {
         id: newGame.id,
-        templateId: 0,
-        title: newGame.title,
-        description: newGame.description,
-        category: newGame.category || 'General',
-        difficulty: (newGame.difficulty || 'Medium') as 'Easy' | 'Medium' | 'Hard',
-        questionsCount: 0,
-        maxPoints: 0,
+        templateId: 0, // 0 indicates this is a custom created game, not from template
+        title: newGame.title || title,
+        description: newGame.description || prompt.substring(0, 100),
+        category: newGame.category || extractCategory(prompt),
+        difficulty: (newGame.difficulty || difficulty) as 'Easy' | 'Medium' | 'Hard',
+        questionsCount: newGame.questionsCount || 20,
+        maxPoints: (newGame.questionsCount || 20) * 10,
         currentProgress: 0,
+        createdAt: new Date().toISOString(),
         gameType: newGame.gameType as 'plane' | 'fishing' | 'circuit' | 'quiz',
+      };
+
+      addUserGame(userGame);
+      
+      // Sync with backend
+      await syncWithBackend();
+
+      toast.success(`${getGameTypeLabel(newGame.gameType)} created successfully!`, {
+        description: `"${userGame.title}" has been added to your game library`,
+        action: {
+          label: "Play Now",
+          onClick: () => {
+            onOpenChange(false);
+            // Navigate to the game
+            navigate(`/game/${newGame.id}`);
+          },
+        },
       });
 
-      toast.success(`${getGameTypeLabel(newGame.gameType)} created!`, {
-        description: `"${newGame.title}" is ready to play`,
-      });
-
+      // Reset form and close dialog
       onOpenChange(false);
-      setPrompt("");
-      setGameType('plane');
+      resetForm();
+      
     } catch (error: any) {
       console.error('❌ Failed to create game:', error);
       
@@ -106,6 +139,14 @@ export const CreateNewGameDialog = ({
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setPrompt("");
+    setGameType('plane');
+    setDifficulty('Medium');
+    setError(null);
   };
 
   const examplePrompts = {
@@ -143,15 +184,23 @@ export const CreateNewGameDialog = ({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(open) => {
+      if (!open && !isCreating) {
+        resetForm();
+      }
+      onOpenChange(open);
+    }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Rocket className="h-6 w-6 text-primary" />
-            Create Brand New AI Game
+            Create Brand New Game
           </DialogTitle>
-          <DialogDescription>
-            Describe the game you want to create. AI will generate a completely new game experience with custom mechanics and challenges.
+          <DialogDescription className="space-y-1">
+            <p>Create a completely new game from scratch that will appear in your game library.</p>
+            <p className="text-xs text-muted-foreground">
+              💡 <strong>Flow 1:</strong> This creates a full game experience with custom mechanics and content.
+            </p>
           </DialogDescription>
         </DialogHeader>
 
@@ -164,10 +213,31 @@ export const CreateNewGameDialog = ({
             </Alert>
           )}
 
+          {/* Game Title Input */}
+          <div className="space-y-2">
+            <Label htmlFor="title" className="text-base font-semibold">
+              Game Title *
+            </Label>
+            <Input
+              id="title"
+              placeholder="e.g., Math Adventure, Vocabulary Quest, History Challenge"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setError(null);
+              }}
+              disabled={isCreating}
+              maxLength={100}
+            />
+            <p className="text-xs text-muted-foreground">
+              Give your game a catchy, memorable title
+            </p>
+          </div>
+
           {/* Game Type Selection */}
           <div className="space-y-2">
             <Label htmlFor="gameType" className="text-base font-semibold">
-              Game Type
+              Game Type *
             </Label>
             <Select
               value={gameType}
@@ -195,10 +265,46 @@ export const CreateNewGameDialog = ({
             </p>
           </div>
 
+          {/* Difficulty Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="difficulty" className="text-base font-semibold">
+              Difficulty Level
+            </Label>
+            <Select
+              value={difficulty}
+              onValueChange={(value: any) => setDifficulty(value)}
+              disabled={isCreating}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Easy">
+                  <div className="flex flex-col">
+                    <span className="font-medium">🟢 Easy</span>
+                    <span className="text-xs text-muted-foreground">Perfect for beginners</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="Medium">
+                  <div className="flex flex-col">
+                    <span className="font-medium">🟡 Medium</span>
+                    <span className="text-xs text-muted-foreground">Balanced challenge</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="Hard">
+                  <div className="flex flex-col">
+                    <span className="font-medium">🔴 Hard</span>
+                    <span className="text-xs text-muted-foreground">Advanced players</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Prompt Input */}
           <div className="space-y-2">
             <Label htmlFor="prompt" className="text-base font-semibold">
-              Describe Your Game
+              Describe Your Game *
             </Label>
             <Textarea
               id="prompt"
@@ -233,56 +339,60 @@ export const CreateNewGameDialog = ({
           </div>
 
           {/* Info Box */}
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
-            <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              How AI Creates Your Game
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2 text-blue-900">
+              <GamepadIcon className="h-4 w-4 text-blue-700" />
+              What happens when you create a game?
             </h4>
-            <ul className="text-xs text-muted-foreground space-y-1 ml-6 list-disc">
-              <li>AI analyzes your game description</li>
-              <li>Generates custom game mechanics and challenges</li>
-              <li>Creates levels, obstacles, and rewards</li>
-              <li>Embeds learning concepts into gameplay</li>
-              <li>Game appears in your library ready to play</li>
+            <ul className="text-xs text-blue-700 space-y-1 ml-6 list-disc">
+              <li>AI generates a complete game with custom mechanics</li>
+              <li>Educational content is created based on your description</li>
+              <li>Game appears in your library and browse page</li>
+              <li>Ready to play immediately with 20+ questions</li>
+              <li>Can be shared with other users (coming soon)</li>
             </ul>
           </div>
 
-          {/* Processing Info */}
-          {isCreating && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-blue-700 text-sm font-medium">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Creating your game...
-              </div>
-              <p className="text-xs text-blue-600 mt-1">
-                AI is designing game mechanics and generating content
+          {/* Flow Distinction Badge */}
+          <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+            <Sparkles className="h-5 w-5 text-purple-600" />
+            <div className="text-sm">
+              <p className="font-semibold text-purple-900">Creating a Complete Game</p>
+              <p className="text-xs text-purple-700">
+                This is different from "Start Playing" which adds questions to existing templates
               </p>
             </div>
-          )}
+          </div>
         </div>
 
+        {/* Action Buttons */}
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (!isCreating) {
+                onOpenChange(false);
+                resetForm();
+              }
+            }}
             disabled={isCreating}
           >
             Cancel
           </Button>
-          <Button
+          <Button 
             onClick={handleCreate}
-            disabled={!prompt.trim() || prompt.length < 20 || isCreating}
+            disabled={!title.trim() || !prompt.trim() || prompt.length < 20 || isCreating}
             className="bg-gradient-primary hover:opacity-90"
           >
             {isCreating ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Creating...
+                Creating Game...
               </>
             ) : (
               <>
                 <Rocket className="h-4 w-4 mr-2" />
-                Create Game
+                Create Complete Game
               </>
             )}
           </Button>
@@ -304,6 +414,8 @@ function extractCategory(prompt: string): string {
     'literature': 'Literature',
     'programming': 'Programming',
     'language': 'Language',
+    'science': 'Science',
+    'technology': 'Technology',
   };
 
   const lowerPrompt = prompt.toLowerCase();
