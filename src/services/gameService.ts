@@ -21,8 +21,9 @@ export interface GameFilters {
  * ✅ FEATURE 1: Create brand NEW game
  */
 export interface CreateNewGameRequest {
+  title: string;
   prompt: string;
-  gameType: 'plane' | 'fishing' | 'circuit' | 'quiz';
+  gameType?: 'plane' | 'fishing' | 'circuit' | 'quiz';
   category: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
 }
@@ -399,16 +400,16 @@ class GameService {
    * Validate create new game request
    */
   private validateCreateNewGameRequest(request: CreateNewGameRequest): void {
+    if (!request.title?.trim()) {
+      throw new Error('Game title is required');
+    }
     if (!request.prompt?.trim()) {
       throw new Error('Game description is required');
     }
     if (request.prompt.length < 20) {
       throw new Error('Please provide a more detailed game description');
     }
-    if (!request.gameType) {
-      throw new Error('Game type is required');
-    }
-    if (!['plane', 'fishing', 'circuit', 'quiz'].includes(request.gameType)) {
+    if (request.gameType && !['plane', 'fishing', 'circuit', 'quiz'].includes(request.gameType)) {
       throw new Error('Invalid game type');
     }
   }
