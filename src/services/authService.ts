@@ -3,11 +3,27 @@ import { apiClient } from './api/client';
 import { ApiResponse } from './api/types';
 
 interface LoginRequest {
-  username: string;
+  email: string;      // ✅ Changed from username to email
   password: string;
 }
 
 interface LoginResponse {
+  access: string;
+  refresh: string;
+}
+
+interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+
+interface RegisterResponse {
+  user: {
+    id: string;
+    username: string;
+    email: string;
+  };
   access: string;
   refresh: string;
 }
@@ -17,13 +33,41 @@ class AuthService {
   private readonly REFRESH_KEY = 'refreshToken';
 
   /**
+   * Register new user
+   */
+  async register(data: RegisterRequest): Promise<ApiResponse<RegisterResponse>> {
+    try {
+      const response = await apiClient.post<RegisterResponse>(
+        '/api/auth/register/',
+        data
+      );
+
+      console.log('🎉 Registration response:', response);
+
+      // Store tokens
+      this.setTokens(response.access, response.refresh);
+
+      console.log('✅ User registered and tokens stored');
+
+      return {
+        data: response,
+        success: true,
+        message: 'Registration successful'
+      };
+    } catch (error) {
+      console.error('❌ Registration error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Login user and store tokens
    */
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     try {
       // Make the API call
       const response = await apiClient.post<LoginResponse>(
-        '/auth/login/',
+        '/api/auth/token/',
         credentials
       );
 
@@ -95,13 +139,23 @@ class AuthService {
       throw new Error('No refresh token available');
     }
 
-    const response = await apiClient.post<{ access: string }>(
-      '/auth/refresh/',
-      { refresh }
-    );
+    try {
+      // Use apiClient directly instead of axios
+      const response = await apiClient.post<{ access: string }>(
+        '/api/auth/token/refresh/',
+        { refresh }
+      );
 
-    localStorage.setItem(this.TOKEN_KEY, response.access);
-    return response.access;
+      // Store new access token
+      localStorage.setItem(this.TOKEN_KEY, response.access);
+      
+      return response.access;
+    } catch (error) {
+      console.error('❌ Token refresh failed:', error);
+      // Clear tokens and redirect to login
+      this.logout();
+      throw error;
+    }
   }
 }
 

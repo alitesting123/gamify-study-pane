@@ -7,7 +7,7 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: config.apiUrl || 'http://localhost:8000/api',  // ← Add fallback
+      baseURL: config.apiUrl || 'http://localhost:8000',  // ✅ No /api suffix
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
@@ -21,7 +21,6 @@ class ApiClient {
     // Request interceptor - Add auth token
     this.client.interceptors.request.use(
       (config) => {
-        // Get token from localStorage
         const token = localStorage.getItem('authToken');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -39,7 +38,6 @@ class ApiClient {
       async (error) => {
         const originalRequest = error.config;
 
-        // If 401 and not already retried, try to refresh token
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
 
@@ -49,20 +47,18 @@ class ApiClient {
               throw new Error('No refresh token');
             }
 
-            // Try to refresh the token
+            // ✅ FIXED: Use apiClient's base URL, just provide the path
             const response = await axios.post(
-              `${config.apiUrl}/auth/refresh/`,
+              `${config.apiUrl || 'http://localhost:8000'}/api/auth/token/refresh/`,
               { refresh: refreshToken }
             );
 
             const newAccessToken = response.data.access;
             localStorage.setItem('authToken', newAccessToken);
 
-            // Retry original request with new token
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             return this.client(originalRequest);
           } catch (refreshError) {
-            // Refresh failed, redirect to login
             localStorage.removeItem('authToken');
             localStorage.removeItem('refreshToken');
             window.location.href = '/login';
@@ -75,31 +71,45 @@ class ApiClient {
     );
   }
 
+  /**
+   * Unwrap Django backend response format
+   * Backend returns: { data: {...}, message: "...", success: true }
+   * We need to extract just the 'data' part
+   */
+  private unwrapResponse<T>(response: AxiosResponse): T {
+    // If backend returns wrapped format
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      return response.data.data as T;
+    }
+    // Otherwise return as-is (for backward compatibility)
+    return response.data as T;
+  }
+
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.get(url, config);
-    return response.data;
+    const response: AxiosResponse = await this.client.get(url, config);
+    return this.unwrapResponse<T>(response);
   }
 
   async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.post(url, data, config);
-    return response.data;
+    const response: AxiosResponse = await this.client.post(url, data, config);
+    return this.unwrapResponse<T>(response);
   }
 
   async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.put(url, data, config);
-    return response.data;
+    const response: AxiosResponse = await this.client.put(url, data, config);
+    return this.unwrapResponse<T>(response);
   }
 
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.delete(url, config);
-    return response.data;
+    const response: AxiosResponse = await this.client.delete(url, config);
+    return this.unwrapResponse<T>(response);
   }
 
   async upload<T>(url: string, file: File, onProgress?: (progress: number) => void): Promise<T> {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response: AxiosResponse<T> = await this.client.post(url, formData, {
+    const response: AxiosResponse = await this.client.post(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -111,7 +121,7 @@ class ApiClient {
       },
     });
 
-    return response.data;
+    return this.unwrapResponse<T>(response);
   }
 }
 
