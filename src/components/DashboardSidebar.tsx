@@ -1,4 +1,4 @@
-import { BookOpen, Gamepad2, Library, Clock, Play } from "lucide-react";
+import { BookOpen, Gamepad2, Library, Clock, Play, BarChart3, HelpCircle } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { title: "Game Library", icon: Library, view: "library" },
+  { title: "My Stats", icon: BarChart3, view: "stats" },
+  { title: "Question Demo", icon: HelpCircle, view: "question-demo" },
   { title: "My Notes", icon: BookOpen, view: "notes" },
 ];
 
@@ -80,7 +82,7 @@ export function DashboardSidebar({ currentView, onViewChange }: DashboardSidebar
                             {game.questionsCount}Q
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {game.currentProgress}%
+                            {game.accuracy ?? game.currentProgress}%
                           </span>
                         </div>
                       </div>

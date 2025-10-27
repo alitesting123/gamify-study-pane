@@ -27,10 +27,222 @@ interface GameContextType {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
-  // Load from localStorage on mount
-  const [userGames, setUserGames] = useState<UserGame[]>(() => 
-    storage.loadUserGames()
-  );
+  // Load from localStorage on mount, or use mock data for testing
+  const [userGames, setUserGames] = useState<UserGame[]>(() => {
+    const savedGames = storage.loadUserGames();
+
+    // Add mock data if no games exist (for testing subject-based stats)
+    if (savedGames.length === 0) {
+      return [
+        {
+          id: 'mock-1',
+          templateId: 1,
+          title: 'Metal Motherboards - Attempt 1',
+          description: 'First attempt at Metal Motherboards study',
+          category: 'Hardware',
+          categoryType: 'learning',
+          difficulty: 'Medium',
+          questionsCount: 10,
+          maxPoints: 100,
+          currentProgress: 65,
+          createdAt: '2025-01-15T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Metal Motherboards',
+          accuracy: 70,
+          questionsCorrect: 7,
+          playedAt: '2025-01-15T10:30:00Z',
+          questionAttempts: [
+            {
+              questionText: 'What is the primary advantage of metal motherboards regarding heat management?',
+              userAnswer: 'They prevent overheating',
+              correctAnswer: 'Better Heat Dissipation – ideal for high-power CPUs, GPUs, or industrial systems',
+              isCorrect: false,
+              topic: 'Heat Dissipation',
+              documentReference: {
+                text: 'Better Heat Dissipation – ideal for high-power CPUs, GPUs, or industrial systems.',
+                section: '4. Advantages',
+                context: 'Metal motherboards excel at thermal management, making them perfect for high-performance computing environments where heat generation is a critical concern.',
+              },
+            },
+            {
+              questionText: 'Which material is most commonly used for metal motherboards?',
+              userAnswer: 'Steel',
+              correctAnswer: 'Aluminum',
+              isCorrect: false,
+              topic: 'Materials',
+              documentReference: {
+                text: 'Aluminum – most common; lightweight, strong, excellent thermal conductivity.',
+                section: '2. Materials Used',
+                context: 'Aluminum is preferred due to its balance of weight, strength, and thermal properties.',
+              },
+            },
+            {
+              questionText: 'What does MCPCB stand for?',
+              userAnswer: 'Metal Circuit Board',
+              correctAnswer: 'Metal-Core PCB',
+              isCorrect: false,
+              topic: 'Definition',
+              documentReference: {
+                text: 'These are sometimes called metal-core PCBs (MCPCBs) when used in high-performance electronics.',
+                section: '1. Definition',
+                context: 'MCPCB is the technical term for motherboards with metal substrate cores.',
+              },
+            },
+          ],
+        },
+        {
+          id: 'mock-2',
+          templateId: 1,
+          title: 'Metal Motherboards - Attempt 2',
+          description: 'Second attempt at Metal Motherboards study',
+          category: 'Hardware',
+          categoryType: 'learning',
+          difficulty: 'Medium',
+          questionsCount: 10,
+          maxPoints: 100,
+          currentProgress: 75,
+          createdAt: '2025-01-16T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Metal Motherboards',
+          accuracy: 80,
+          questionsCorrect: 8,
+          playedAt: '2025-01-16T10:30:00Z',
+          questionAttempts: [
+            {
+              questionText: 'What is the primary advantage of metal motherboards regarding heat management?',
+              userAnswer: 'Better Heat Dissipation',
+              correctAnswer: 'Better Heat Dissipation – ideal for high-power CPUs, GPUs, or industrial systems',
+              isCorrect: true,
+              topic: 'Heat Dissipation',
+            },
+            {
+              questionText: 'Which material is most commonly used for metal motherboards?',
+              userAnswer: 'Aluminum',
+              correctAnswer: 'Aluminum',
+              isCorrect: true,
+              topic: 'Materials',
+            },
+            {
+              questionText: 'What is a disadvantage of metal motherboards?',
+              userAnswer: 'They are lighter',
+              correctAnswer: 'Heavier – especially with copper cores',
+              isCorrect: false,
+              topic: 'Disadvantages',
+              documentReference: {
+                text: 'Heavier – especially with copper cores.',
+                section: '5. Disadvantages',
+                context: 'Metal motherboards typically weigh more than traditional FR-4 boards, which can be a consideration in portable or weight-sensitive applications.',
+              },
+            },
+          ],
+        },
+        {
+          id: 'mock-3',
+          templateId: 1,
+          title: 'Metal Motherboards - Attempt 3',
+          description: 'Third attempt at Metal Motherboards study',
+          category: 'Hardware',
+          categoryType: 'learning',
+          difficulty: 'Medium',
+          questionsCount: 10,
+          maxPoints: 100,
+          currentProgress: 85,
+          createdAt: '2025-01-17T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Metal Motherboards',
+          accuracy: 90,
+          questionsCorrect: 9,
+          playedAt: '2025-01-17T10:30:00Z',
+          questionAttempts: [
+            {
+              questionText: 'What is the primary advantage of metal motherboards regarding heat management?',
+              userAnswer: 'Better Heat Dissipation – ideal for high-power CPUs, GPUs, or industrial systems',
+              correctAnswer: 'Better Heat Dissipation – ideal for high-power CPUs, GPUs, or industrial systems',
+              isCorrect: true,
+              topic: 'Heat Dissipation',
+            },
+            {
+              questionText: 'Which material is most commonly used for metal motherboards?',
+              userAnswer: 'Aluminum',
+              correctAnswer: 'Aluminum',
+              isCorrect: true,
+              topic: 'Materials',
+            },
+            {
+              questionText: 'What does MCPCB stand for?',
+              userAnswer: 'Metal-Core PCB',
+              correctAnswer: 'Metal-Core PCB',
+              isCorrect: true,
+              topic: 'Definition',
+            },
+            {
+              questionText: 'What is a disadvantage of metal motherboards?',
+              userAnswer: 'Heavier weight',
+              correctAnswer: 'Heavier – especially with copper cores',
+              isCorrect: true,
+              topic: 'Disadvantages',
+            },
+          ],
+        },
+        {
+          id: 'mock-4',
+          templateId: 2,
+          title: 'CPU Architecture - Attempt 1',
+          description: 'First attempt at CPU Architecture',
+          category: 'Hardware',
+          categoryType: 'quick-think',
+          difficulty: 'Hard',
+          questionsCount: 15,
+          maxPoints: 150,
+          currentProgress: 55,
+          createdAt: '2025-01-18T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'CPU Architecture',
+          accuracy: 55,
+          questionsCorrect: 8,
+          playedAt: '2025-01-18T10:30:00Z',
+        },
+        {
+          id: 'mock-5',
+          templateId: 2,
+          title: 'CPU Architecture - Attempt 2',
+          description: 'Second attempt at CPU Architecture',
+          category: 'Hardware',
+          categoryType: 'quick-think',
+          difficulty: 'Hard',
+          questionsCount: 15,
+          maxPoints: 150,
+          currentProgress: 60,
+          createdAt: '2025-01-19T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'CPU Architecture',
+          accuracy: 60,
+          questionsCorrect: 9,
+          playedAt: '2025-01-19T10:30:00Z',
+        },
+        {
+          id: 'mock-6',
+          templateId: 3,
+          title: 'Python Programming - Attempt 1',
+          description: 'First attempt at Python basics',
+          category: 'Programming',
+          categoryType: 'memory',
+          difficulty: 'Easy',
+          questionsCount: 12,
+          maxPoints: 120,
+          currentProgress: 90,
+          createdAt: '2025-01-20T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Python Programming',
+          accuracy: 90,
+          questionsCorrect: 11,
+          playedAt: '2025-01-20T10:30:00Z',
+        },
+      ];
+    }
+
+    return savedGames;
+  });
   
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -169,18 +381,21 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * ✅ ENHANCED: Update user progress with backend sync
+   * Points system: 1 point for easy, 2 points for medium, 3 points for hard
    */
   const updateProgress = useCallback(async (points: number) => {
     console.log('📈 Updating progress: +', points, 'points');
-    
+
     setUserProgress((prev) => {
       const newXP = prev.currentXP + points;
-      const newLevel = Math.floor(newXP / prev.xpToNextLevel) + 1;
-      
+      const xpForNextLevel = 100 * prev.level;  // Dynamic XP requirement
+      const newLevel = prev.level + Math.floor(newXP / xpForNextLevel);
+      const remainingXP = newXP % xpForNextLevel;
+
       const updated = {
         ...prev,
-        currentXP: newXP % prev.xpToNextLevel,
-        level: newLevel > prev.level ? newLevel : prev.level,
+        currentXP: remainingXP,
+        level: newLevel,
         xpToNextLevel: 100 * newLevel,
         totalPoints: prev.totalPoints + points,
         totalGamesCompleted: prev.totalGamesCompleted + 1,
@@ -188,7 +403,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
       // ✅ Show level up notification
       if (newLevel > prev.level) {
-        toast.success('🎉 Level Up!', {
+        toast.success('Level Up!', {
           description: `You reached level ${newLevel}!`,
         });
       }
