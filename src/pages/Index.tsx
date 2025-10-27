@@ -8,6 +8,8 @@ import { GameDetailView } from "@/components/GameDetailView";
 import { GamePlayView } from "@/components/GamePlayView";
 import { StartPlayingDialog } from "@/components/StartPlayingDialog";
 import { MyStats } from "@/components/MyStats";
+import { Settings } from "@/components/Settings";
+import { Subscription } from "@/components/Subscription";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, Rocket } from "lucide-react";
@@ -86,6 +88,16 @@ const Index = () => {
     // My Stats View
     if (currentView === "stats") {
       return <MyStats />;
+    }
+
+    // Settings View
+    if (currentView === "settings") {
+      return <Settings />;
+    }
+
+    // Subscription View
+    if (currentView === "subscription") {
+      return <Subscription />;
     }
 
     // My Notes View - Full page layout with tree and editor

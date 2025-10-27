@@ -381,18 +381,21 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * ✅ ENHANCED: Update user progress with backend sync
+   * Points system: 1 point for easy, 2 points for medium, 3 points for hard
    */
   const updateProgress = useCallback(async (points: number) => {
     console.log('📈 Updating progress: +', points, 'points');
-    
+
     setUserProgress((prev) => {
       const newXP = prev.currentXP + points;
-      const newLevel = Math.floor(newXP / prev.xpToNextLevel) + 1;
-      
+      const xpForNextLevel = 100 * prev.level;  // Dynamic XP requirement
+      const newLevel = prev.level + Math.floor(newXP / xpForNextLevel);
+      const remainingXP = newXP % xpForNextLevel;
+
       const updated = {
         ...prev,
-        currentXP: newXP % prev.xpToNextLevel,
-        level: newLevel > prev.level ? newLevel : prev.level,
+        currentXP: remainingXP,
+        level: newLevel,
         xpToNextLevel: 100 * newLevel,
         totalPoints: prev.totalPoints + points,
         totalGamesCompleted: prev.totalGamesCompleted + 1,
@@ -400,7 +403,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
       // ✅ Show level up notification
       if (newLevel > prev.level) {
-        toast.success('🎉 Level Up!', {
+        toast.success('Level Up!', {
           description: `You reached level ${newLevel}!`,
         });
       }
