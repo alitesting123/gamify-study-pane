@@ -5,9 +5,15 @@ import { initializeFishingGame } from './pixiGames/fishingGame';
 import { initializeCircuitGame } from './pixiGames/circuitGame';
 import type { GameConfig } from '@/services/gameService';
 
+export interface QuestionOption {
+  id: string;
+  text: string;
+}
+
 export interface GameQuestion {
   question: string;
-  answer: string;
+  options: QuestionOption[];
+  correctAnswer: string; // The id of the correct option
 }
 
 interface GameCallbacks {

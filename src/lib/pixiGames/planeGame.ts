@@ -1,10 +1,6 @@
 // src/lib/pixiGames/planeGame.ts
 import { Application, Graphics, Container, Text, TextStyle } from 'pixi.js';
-
-export interface GameQuestion {
-  question: string;
-  answer: string;
-}
+import type { GameQuestion } from '@/lib/pixiGame';
 
 interface GameCallbacks {
   onQuestionComplete: (isCorrect: boolean) => void;
@@ -21,17 +17,98 @@ interface Particle extends Graphics {
 
 let keyboardHandler: ((e: KeyboardEvent) => void) | null = null;
 
-// Quiz questions
-const questions = [
-  { question: "What is 15 + 23?", answer: "38" },
-  { question: "How many wings does a bird have?", answer: "2" },
-  { question: "What is 9 x 7?", answer: "63" },
-  { question: "What do birds use to fly?", answer: "wings" },
-  { question: "What is 100 - 47?", answer: "53" },
-  { question: "What is 8 x 8?", answer: "64" },
-  { question: "What do baby birds hatch from?", answer: "eggs" },
-  { question: "What is 144 ÷ 12?", answer: "12" },
-  { question: "Can penguins fly? (yes or no)", answer: "no" }
+// MCQ Quiz questions
+const questions: GameQuestion[] = [
+  {
+    question: "What is 15 + 23?",
+    options: [
+      { id: "a", text: "35" },
+      { id: "b", text: "38" },
+      { id: "c", text: "40" },
+      { id: "d", text: "42" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "How many wings does a bird have?",
+    options: [
+      { id: "a", text: "1" },
+      { id: "b", text: "2" },
+      { id: "c", text: "3" },
+      { id: "d", text: "4" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "What is 9 x 7?",
+    options: [
+      { id: "a", text: "56" },
+      { id: "b", text: "61" },
+      { id: "c", text: "63" },
+      { id: "d", text: "72" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "What do birds use to fly?",
+    options: [
+      { id: "a", text: "Legs" },
+      { id: "b", text: "Wings" },
+      { id: "c", text: "Beak" },
+      { id: "d", text: "Tail" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "What is 100 - 47?",
+    options: [
+      { id: "a", text: "47" },
+      { id: "b", text: "50" },
+      { id: "c", text: "53" },
+      { id: "d", text: "57" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "What is 8 x 8?",
+    options: [
+      { id: "a", text: "56" },
+      { id: "b", text: "60" },
+      { id: "c", text: "64" },
+      { id: "d", text: "72" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "What do baby birds hatch from?",
+    options: [
+      { id: "a", text: "Nests" },
+      { id: "b", text: "Eggs" },
+      { id: "c", text: "Trees" },
+      { id: "d", text: "Leaves" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "What is 144 ÷ 12?",
+    options: [
+      { id: "a", text: "10" },
+      { id: "b", text: "11" },
+      { id: "c", text: "12" },
+      { id: "d", text: "13" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "Can penguins fly?",
+    options: [
+      { id: "a", text: "Yes" },
+      { id: "b", text: "No" },
+      { id: "c", text: "Sometimes" },
+      { id: "d", text: "Only underwater" }
+    ],
+    correctAnswer: "b"
+  }
 ];
 
 export async function initializePlaneGame(

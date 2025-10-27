@@ -1,9 +1,7 @@
 // src/components/GameQuestionModal.tsx
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Check, X, Brain, Sparkles, Trophy } from "lucide-react";
+import { AlertTriangle, Check, X, Brain, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { GameQuestion } from "@/lib/pixiGame";
@@ -23,7 +21,7 @@ export const GameQuestionModal = ({
   title = "⚠️ Challenge Question!",
   allowRetry = true,
 }: GameQuestionModalProps) => {
-  const [userAnswer, setUserAnswer] = useState("");
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [attempts, setAttempts] = useState(0);
@@ -31,29 +29,22 @@ export const GameQuestionModal = ({
   // Reset state when question changes
   useEffect(() => {
     if (question && open) {
-      setUserAnswer("");
+      setSelectedOption(null);
       setShowFeedback(false);
       setIsCorrect(false);
       setAttempts(0);
     }
   }, [question, open]);
 
-  // Auto-focus input when modal opens
-  useEffect(() => {
-    if (open) {
-      const timer = setTimeout(() => {
-        const input = document.querySelector('input[name="game-answer"]') as HTMLInputElement;
-        input?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
+  const handleOptionClick = (optionId: string) => {
+    if (showFeedback) return; // Don't allow changes after submitting
+    setSelectedOption(optionId);
+  };
 
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!question || !userAnswer.trim()) return;
+  const handleSubmit = () => {
+    if (!question || !selectedOption) return;
 
-    const correct = userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim();
+    const correct = selectedOption === question.correctAnswer;
     setIsCorrect(correct);
     setShowFeedback(true);
     setAttempts(attempts + 1);
@@ -61,39 +52,28 @@ export const GameQuestionModal = ({
     if (correct) {
       // Correct answer - close after delay
       setTimeout(() => {
-        onAnswer(true, userAnswer);
+        onAnswer(true, selectedOption);
       }, 1500);
     } else if (!allowRetry) {
       // Wrong and no retry - close after delay
       setTimeout(() => {
-        onAnswer(false, userAnswer);
+        onAnswer(false, selectedOption);
       }, 2000);
     } else {
-      // Wrong but can retry - clear input after showing feedback
+      // Wrong but can retry - reset after showing feedback
       setTimeout(() => {
         setShowFeedback(false);
-        setUserAnswer("");
+        setSelectedOption(null);
       }, 1500);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !showFeedback) {
-      handleSubmit();
     }
   };
 
   if (!question) return null;
 
-  // Detect question type for UI hints
-  const isYesNo = question.question.toLowerCase().includes("(yes or no)");
-  const isTrueFalse = question.question.toLowerCase().includes("(true or false)");
-  const isNumeric = /\d+/.test(question.answer) && question.answer.length <= 5;
-
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
-        className="max-w-2xl p-0 border-2 bg-gradient-to-br from-background via-background to-muted/20 overflow-hidden"
+        className="max-w-3xl p-0 border-2 bg-gradient-to-br from-background via-background to-muted/20 overflow-hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -123,176 +103,146 @@ export const GameQuestionModal = ({
                   <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 shadow-lg">
                     <Brain className="h-7 w-7 text-primary" />
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1">
                     <p className="text-2xl font-bold leading-relaxed text-foreground">
                       {question.question}
                     </p>
-                    {(isYesNo || isTrueFalse || isNumeric) && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Sparkles className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-muted-foreground">
-                          {isYesNo && "Type: yes or no"}
-                          {isTrueFalse && "Type: true or false"}
-                          {isNumeric && !isYesNo && !isTrueFalse && "Enter a number"}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Answer Input */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-3">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-primary" />
-                Your Answer
-              </label>
-              <div className="relative">
-                <Input
-                  name="game-answer"
-                  type="text"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={showFeedback && isCorrect}
-                  placeholder="Type your answer here..."
+          {/* MCQ Options */}
+          <div className="space-y-3">
+            {question.options.map((option, index) => {
+              const isSelected = selectedOption === option.id;
+              const isCorrectOption = option.id === question.correctAnswer;
+              const showCorrectMark = showFeedback && isCorrectOption;
+              const showIncorrectMark = showFeedback && isSelected && !isCorrect;
+
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleOptionClick(option.id)}
+                  disabled={showFeedback}
                   className={cn(
-                    "h-16 text-xl font-semibold px-6 border-2 transition-all duration-300 shadow-lg",
-                    showFeedback && isCorrect && "border-emerald-500 bg-emerald-500/10",
-                    showFeedback && !isCorrect && "border-rose-500 bg-rose-500/10",
-                    !showFeedback && "focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    "group relative w-full text-left overflow-hidden rounded-xl border-2 p-5 transition-all duration-300",
+                    "hover:border-primary/50 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent hover:scale-[1.01] hover:shadow-lg",
+                    "active:scale-[0.99]",
+                    "disabled:cursor-not-allowed disabled:hover:scale-100",
+                    isSelected && !showFeedback && "border-primary bg-gradient-to-r from-primary/15 via-primary/8 to-transparent shadow-lg shadow-primary/10 scale-[1.01]",
+                    showCorrectMark && "border-emerald-500 bg-gradient-to-r from-emerald-500/15 via-emerald-500/8 to-transparent shadow-lg shadow-emerald-500/20",
+                    showIncorrectMark && "border-rose-500 bg-gradient-to-r from-rose-500/15 via-rose-500/8 to-transparent shadow-lg shadow-rose-500/20",
+                    !isSelected && !showCorrectMark && !showIncorrectMark && "border-border/50 bg-gradient-to-r from-background/50 to-muted/20"
                   )}
-                />
-                {showFeedback && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    {isCorrect ? (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg animate-in zoom-in-50 duration-300">
-                        <Check className="h-6 w-6 text-white" strokeWidth={3} />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center shadow-lg animate-in zoom-in-50 duration-300">
-                        <X className="h-6 w-6 text-white" strokeWidth={3} />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                >
+                  {/* Shine effect on hover */}
+                  <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
 
-              {/* Quick Options for Yes/No or True/False */}
-              {(isYesNo || isTrueFalse) && !showFeedback && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    onClick={() => {
-                      setUserAnswer(isYesNo ? "yes" : "true");
-                      setTimeout(() => {
-                        const input = document.querySelector('input[name="game-answer"]') as HTMLInputElement;
-                        input?.focus();
-                      }, 0);
-                    }}
-                    className="h-14 text-base font-semibold border-2 hover:border-primary hover:bg-primary/10 transition-all duration-200"
-                  >
-                    {isYesNo ? "Yes" : "True"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    onClick={() => {
-                      setUserAnswer(isYesNo ? "no" : "false");
-                      setTimeout(() => {
-                        const input = document.querySelector('input[name="game-answer"]') as HTMLInputElement;
-                        input?.focus();
-                      }, 0);
-                    }}
-                    className="h-14 text-base font-semibold border-2 hover:border-primary hover:bg-primary/10 transition-all duration-200"
-                  >
-                    {isYesNo ? "No" : "False"}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Feedback Message */}
-            {showFeedback && (
-              <div
-                className={cn(
-                  "p-5 rounded-xl border-2 animate-in slide-in-from-bottom-4 duration-500 shadow-lg",
-                  isCorrect
-                    ? "border-emerald-500/50 bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-emerald-500/5"
-                    : "border-rose-500/50 bg-gradient-to-br from-rose-500/15 via-rose-500/10 to-rose-500/5"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "p-2 rounded-lg flex-shrink-0",
-                      isCorrect ? "bg-emerald-500/20" : "bg-rose-500/20"
-                    )}
-                  >
-                    {isCorrect ? (
-                      <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
-                    ) : (
-                      <X className="h-5 w-5 text-rose-600 dark:text-rose-400" strokeWidth={3} />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p
-                      className={cn(
-                        "font-bold text-lg",
-                        isCorrect
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : "text-rose-700 dark:text-rose-400"
+                  <div className="relative flex items-center gap-4">
+                    {/* Letter badge */}
+                    <div className={cn(
+                      "relative w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0 transition-all duration-300 shadow-md",
+                      isSelected && !showFeedback && "bg-gradient-to-br from-primary to-primary/80 text-white shadow-primary/50 shadow-lg scale-110",
+                      showCorrectMark && "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-emerald-500/50 shadow-lg scale-110",
+                      showIncorrectMark && "bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-rose-500/50 shadow-lg scale-110",
+                      !isSelected && !showCorrectMark && !showIncorrectMark && "bg-gradient-to-br from-muted to-muted/70 text-muted-foreground group-hover:from-primary/20 group-hover:to-primary/10 group-hover:text-primary"
+                    )}>
+                      {showCorrectMark && (
+                        <div className="absolute inset-0 rounded-xl bg-emerald-500 animate-ping opacity-30" />
                       )}
-                    >
-                      {isCorrect ? "Excellent! Correct Answer!" : "Incorrect Answer"}
-                    </p>
-                    <p className="text-sm text-foreground/80 mt-1">
-                      {isCorrect
-                        ? "Great job! Moving forward..."
-                        : allowRetry
-                        ? "Try again! You can do this!"
-                        : `The correct answer was: ${question.answer}`}
+                      {showCorrectMark ? (
+                        <Check className="h-6 w-6 relative z-10" strokeWidth={3} />
+                      ) : showIncorrectMark ? (
+                        <X className="h-6 w-6 relative z-10" strokeWidth={3} />
+                      ) : (
+                        <span className="relative z-10">{String.fromCharCode(65 + index)}</span>
+                      )}
+                    </div>
+
+                    <p className="flex-1 font-medium text-lg leading-relaxed pr-2">
+                      {option.text}
                     </p>
                   </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Feedback Message */}
+          {showFeedback && (
+            <div
+              className={cn(
+                "p-5 rounded-xl border-2 animate-in slide-in-from-bottom-4 duration-500 shadow-lg",
+                isCorrect
+                  ? "border-emerald-500/50 bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-emerald-500/5"
+                  : "border-rose-500/50 bg-gradient-to-br from-rose-500/15 via-rose-500/10 to-rose-500/5"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={cn(
+                    "p-2 rounded-lg flex-shrink-0",
+                    isCorrect ? "bg-emerald-500/20" : "bg-rose-500/20"
+                  )}
+                >
+                  {isCorrect ? (
+                    <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
+                  ) : (
+                    <X className="h-5 w-5 text-rose-600 dark:text-rose-400" strokeWidth={3} />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p
+                    className={cn(
+                      "font-bold text-lg",
+                      isCorrect
+                        ? "text-emerald-700 dark:text-emerald-400"
+                        : "text-rose-700 dark:text-rose-400"
+                    )}
+                  >
+                    {isCorrect ? "Excellent! Correct Answer!" : "Incorrect Answer"}
+                  </p>
+                  <p className="text-sm text-foreground/80 mt-1">
+                    {isCorrect
+                      ? "Great job! Moving forward..."
+                      : allowRetry
+                      ? "Try again! You can do this!"
+                      : `The correct answer was: ${question.options.find(o => o.id === question.correctAnswer)?.text}`}
+                  </p>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Submit Button */}
-            {!showFeedback && (
-              <Button
-                type="submit"
-                disabled={!userAnswer.trim()}
-                className={cn(
-                  "relative w-full h-16 text-lg font-bold overflow-hidden group transition-all duration-300",
-                  "shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]",
-                  "bg-gradient-to-r from-primary via-primary/90 to-primary/80",
-                  "disabled:opacity-50 disabled:hover:scale-100"
-                )}
-                size="lg"
-              >
-                {/* Shine effect */}
-                <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  Submit Answer
-                  <Check className="h-5 w-5" />
-                </span>
-              </Button>
-            )}
-          </form>
-
-          {/* Helper Text */}
+          {/* Submit Button */}
           {!showFeedback && (
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <div className="px-2 py-1 rounded bg-muted/50 font-mono">Enter</div>
-              <span>to submit</span>
+            <button
+              onClick={handleSubmit}
+              disabled={!selectedOption}
+              className={cn(
+                "relative w-full h-16 text-lg font-bold overflow-hidden group transition-all duration-300 rounded-xl",
+                "shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]",
+                "bg-gradient-to-r from-primary via-primary/90 to-primary/80 text-primary-foreground",
+                "disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+              )}
+            >
+              {/* Shine effect */}
+              <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                Submit Answer
+                <Check className="h-5 w-5" />
+              </span>
+            </button>
+          )}
+
+          {/* Helper hint */}
+          {!showFeedback && !selectedOption && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Sparkles className="h-4 w-4" />
+              <span>Select an option to continue</span>
             </div>
           )}
         </div>
