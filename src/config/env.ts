@@ -9,6 +9,7 @@ interface EnvironmentConfig {
   allowedFileTypes: string[];
   enableDebugMode: boolean;
   enableAnalytics: boolean;
+  enableGameCreation: boolean;
   ragApiEndpoint?: string;
   websocketUrl?: string;
 }
@@ -57,6 +58,7 @@ function loadConfig(): EnvironmentConfig {
     // ✅ Feature Flags
     enableDebugMode: import.meta.env.VITE_DEBUG_MODE === 'true' || appEnv === 'development',
     enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true' && appEnv === 'production',
+    enableGameCreation: import.meta.env.VITE_ENABLE_GAME_CREATION !== 'false', // Default to true
 
     // ✅ Optional Advanced Features
     ragApiEndpoint: import.meta.env.VITE_RAG_API_ENDPOINT,
