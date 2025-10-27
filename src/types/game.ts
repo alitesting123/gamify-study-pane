@@ -28,6 +28,10 @@ export interface UserGame {
   completedAt?: string;
   createdAt: string;
   gameType?:'plane' | 'fishing' | 'circuit' | 'quiz'; // Add game type
+  subject?: string; // Study topic (e.g., "Metal Motherboards")
+  accuracy?: number; // Percentage of correct answers (0-100)
+  questionsCorrect?: number; // Number of correct answers
+  playedAt?: string; // When the game was last played
 }
 
 export interface UserProgress {

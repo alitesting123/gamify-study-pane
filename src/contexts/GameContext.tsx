@@ -27,10 +27,126 @@ interface GameContextType {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
-  // Load from localStorage on mount
-  const [userGames, setUserGames] = useState<UserGame[]>(() => 
-    storage.loadUserGames()
-  );
+  // Load from localStorage on mount, or use mock data for testing
+  const [userGames, setUserGames] = useState<UserGame[]>(() => {
+    const savedGames = storage.loadUserGames();
+
+    // Add mock data if no games exist (for testing subject-based stats)
+    if (savedGames.length === 0) {
+      return [
+        {
+          id: 'mock-1',
+          templateId: 1,
+          title: 'Metal Motherboards - Attempt 1',
+          description: 'First attempt at Metal Motherboards study',
+          category: 'Hardware',
+          categoryType: 'learning',
+          difficulty: 'Medium',
+          questionsCount: 10,
+          maxPoints: 100,
+          currentProgress: 65,
+          createdAt: '2025-01-15T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Metal Motherboards',
+          accuracy: 65,
+          questionsCorrect: 7,
+          playedAt: '2025-01-15T10:30:00Z',
+        },
+        {
+          id: 'mock-2',
+          templateId: 1,
+          title: 'Metal Motherboards - Attempt 2',
+          description: 'Second attempt at Metal Motherboards study',
+          category: 'Hardware',
+          categoryType: 'learning',
+          difficulty: 'Medium',
+          questionsCount: 10,
+          maxPoints: 100,
+          currentProgress: 75,
+          createdAt: '2025-01-16T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Metal Motherboards',
+          accuracy: 75,
+          questionsCorrect: 8,
+          playedAt: '2025-01-16T10:30:00Z',
+        },
+        {
+          id: 'mock-3',
+          templateId: 1,
+          title: 'Metal Motherboards - Attempt 3',
+          description: 'Third attempt at Metal Motherboards study',
+          category: 'Hardware',
+          categoryType: 'learning',
+          difficulty: 'Medium',
+          questionsCount: 10,
+          maxPoints: 100,
+          currentProgress: 85,
+          createdAt: '2025-01-17T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Metal Motherboards',
+          accuracy: 85,
+          questionsCorrect: 9,
+          playedAt: '2025-01-17T10:30:00Z',
+        },
+        {
+          id: 'mock-4',
+          templateId: 2,
+          title: 'CPU Architecture - Attempt 1',
+          description: 'First attempt at CPU Architecture',
+          category: 'Hardware',
+          categoryType: 'quick-think',
+          difficulty: 'Hard',
+          questionsCount: 15,
+          maxPoints: 150,
+          currentProgress: 55,
+          createdAt: '2025-01-18T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'CPU Architecture',
+          accuracy: 55,
+          questionsCorrect: 8,
+          playedAt: '2025-01-18T10:30:00Z',
+        },
+        {
+          id: 'mock-5',
+          templateId: 2,
+          title: 'CPU Architecture - Attempt 2',
+          description: 'Second attempt at CPU Architecture',
+          category: 'Hardware',
+          categoryType: 'quick-think',
+          difficulty: 'Hard',
+          questionsCount: 15,
+          maxPoints: 150,
+          currentProgress: 60,
+          createdAt: '2025-01-19T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'CPU Architecture',
+          accuracy: 60,
+          questionsCorrect: 9,
+          playedAt: '2025-01-19T10:30:00Z',
+        },
+        {
+          id: 'mock-6',
+          templateId: 3,
+          title: 'Python Programming - Attempt 1',
+          description: 'First attempt at Python basics',
+          category: 'Programming',
+          categoryType: 'memory',
+          difficulty: 'Easy',
+          questionsCount: 12,
+          maxPoints: 120,
+          currentProgress: 90,
+          createdAt: '2025-01-20T10:00:00Z',
+          gameType: 'quiz',
+          subject: 'Python Programming',
+          accuracy: 90,
+          questionsCorrect: 11,
+          playedAt: '2025-01-20T10:30:00Z',
+        },
+      ];
+    }
+
+    return savedGames;
+  });
   
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
