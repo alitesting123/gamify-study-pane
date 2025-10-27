@@ -5,10 +5,22 @@ import { initializeFishingGame } from './pixiGames/fishingGame';
 import { initializeCircuitGame } from './pixiGames/circuitGame';
 import type { GameConfig } from '@/services/gameService';
 
+export interface QuestionOption {
+  id: string;
+  text: string;
+}
+
+export interface GameQuestion {
+  question: string;
+  options: QuestionOption[];
+  correctAnswer: string; // The id of the correct option
+}
+
 interface GameCallbacks {
   onQuestionComplete: (isCorrect: boolean) => void;
   onGameComplete: (finalScore: number) => void;
   onScoreUpdate?: (score: number, secondary?: number) => void;
+  onShowQuestion?: (question: GameQuestion, callback: (isCorrect: boolean) => void) => void;
 }
 
 export type GameType = 'plane' | 'fishing' | 'circuit' | 'runner' | 'quiz';

@@ -1,13 +1,13 @@
 // src/components/GamePlayView.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useGameContext } from "@/contexts/GameContext";
-import { initializeGame, cleanupGame } from "@/lib/pixiGame";
-import { gameService, type GameConfig } from "@/services/gameService";
+import { initializeGame, cleanupGame, type GameQuestion } from "@/lib/pixiGame";
 import type { GameType } from "@/lib/pixiGame";
+import { GameQuestionModal } from "@/components/GameQuestionModal";
 
 interface GamePlayViewProps {
   onBack: () => void;
@@ -21,64 +21,82 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [score, setScore] = useState(0);
   const [secondaryStat, setSecondaryStat] = useState(0);
-  
-  // ✅ NEW: State for game configuration
-  const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
-  const [configLoading, setConfigLoading] = useState(true);
-  
+
+  // Question modal state
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [currentGameQuestion, setCurrentGameQuestion] = useState<GameQuestion | null>(null);
+  const questionCallbackRef = useRef<((isCorrect: boolean) => void) | null>(null);
+
   const { userGames, selectedGameId, updateProgress } = useGameContext();
 
   const game = userGames.find((g) => g.id === selectedGameId);
   const totalQuestions = game?.questionsCount || 10;
-  const gameType: GameType = (game?.gameType as GameType) || 'quiz';
+  const gameType: GameType = (game?.gameType as GameType) || 'plane';
 
-  // ✅ NEW: Fetch game configuration from backend
-  useEffect(() => {
-    const fetchConfig = async () => {
-      if (!game?.templateId) {
-        console.warn('No templateId found, using legacy game type');
-        setConfigLoading(false);
+  // Handle question modal answer
+  const handleQuestionAnswer = useCallback((isCorrect: boolean, userAnswer: string) => {
+    console.log('📝 Answer received:', isCorrect, userAnswer);
+    try {
+      // Call the game's callback
+      if (questionCallbackRef.current) {
+        console.log('✅ Calling game callback with:', isCorrect);
+        questionCallbackRef.current(isCorrect);
+      }
+
+      // Update React state
+      if (isCorrect) {
+        setScore((prev) => prev + 10);
+        setCurrentQuestion((prev) => prev + 1);
+        setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
+      }
+    } catch (error) {
+      console.error('Error handling question answer:', error);
+    } finally {
+      // Always close modal and clean up
+      setShowQuestionModal(false);
+      setCurrentGameQuestion(null);
+      questionCallbackRef.current = null;
+    }
+  }, [currentQuestion, totalQuestions]);
+
+  // Expose function to show question from game
+  const showQuestion = useCallback((question: GameQuestion, callback: (isCorrect: boolean) => void) => {
+    console.log('🎯 showQuestion called with:', question);
+    try {
+      if (!question || !question.question || !question.options) {
+        console.error('Invalid question data:', question);
+        // Call callback with false to resume game
+        callback(false);
         return;
       }
 
-      try {
-        console.log('🔄 Fetching game config for template:', game.templateId);
-        const response = await gameService.getGameConfig(game.templateId);
-        console.log('✅ Game config loaded:', response.data);
-        setGameConfig(response.data);
-      } catch (error) {
-        console.error('❌ Failed to load game config:', error);
-        // Continue with legacy gameType if config fetch fails
-      } finally {
-        setConfigLoading(false);
-      }
-    };
+      console.log('✅ Setting modal state to show question');
+      setCurrentGameQuestion(question);
+      setShowQuestionModal(true);
+      questionCallbackRef.current = callback;
+    } catch (error) {
+      console.error('Error showing question:', error);
+      // Call callback with false to resume game
+      callback(false);
+    }
+  }, []);
 
-    fetchConfig();
-  }, [game?.templateId]);
-
-  // ✅ UPDATED: Initialize game AFTER config is loaded
+  // Initialize game when component mounts
   useEffect(() => {
-    if (!canvasRef.current || !game || configLoading) return;
+    if (!canvasRef.current || !game) return;
 
-    console.log('🎮 Initializing game with:', {
-      hasConfig: !!gameConfig,
-      gameType,
-      templateId: game.templateId
-    });
+    console.log('🎮 Initializing game:', game.title, '- Type:', gameType);
 
-    // Initialize PixiJS game with backend configuration
+    // Initialize PixiJS game
     initializeGame(
       canvasRef.current,
       {
         onQuestionComplete: (isCorrect: boolean) => {
-          if (isCorrect) {
-            setScore((prev) => prev + 10);
-            setCurrentQuestion((prev) => prev + 1);
-            setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
-          }
+          // This callback is now handled by the modal
+          console.log('Question completed:', isCorrect);
         },
         onGameComplete: (finalScore: number) => {
+          console.log('Game completed with score:', finalScore);
           updateProgress(finalScore);
         },
         onScoreUpdate: (newScore: number, secondary?: number) => {
@@ -87,16 +105,17 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
             setSecondaryStat(secondary);
           }
         },
+        onShowQuestion: showQuestion,
       },
-      gameConfig ?? undefined,  // ← Pass backend config (or undefined)
-      gameType                   // ← Fallback to legacy gameType
+      undefined,  // No backend config needed for built-in questions
+      gameType
     );
 
     // Cleanup on unmount
     return () => {
       cleanupGame();
     };
-  }, [game, gameType, gameConfig, configLoading]);
+  }, [game, gameType, showQuestion, updateProgress]);
 
   const handlePausePlay = () => {
     setIsPlaying(!isPlaying);
@@ -107,18 +126,6 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
     setIsMuted(!isMuted);
     // Add mute/unmute logic
   };
-
-  // ✅ NEW: Show loading state while fetching config
-  if (configLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading game configuration...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!game) {
     return (
@@ -195,12 +202,21 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
 
       {/* Game Canvas */}
       <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-sky-400 to-sky-200">
-        <div 
-          ref={canvasRef} 
+        <div
+          ref={canvasRef}
           className="w-full h-full"
           style={{ touchAction: 'none' }}
         />
       </div>
+
+      {/* Question Modal */}
+      <GameQuestionModal
+        open={showQuestionModal}
+        question={currentGameQuestion}
+        onAnswer={handleQuestionAnswer}
+        title="Challenge Question"
+        allowRetry={true}
+      />
     </div>
   );
 };

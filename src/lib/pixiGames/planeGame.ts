@@ -1,10 +1,12 @@
 // src/lib/pixiGames/planeGame.ts
 import { Application, Graphics, Container, Text, TextStyle } from 'pixi.js';
+import type { GameQuestion } from '@/lib/pixiGame';
 
 interface GameCallbacks {
   onQuestionComplete: (isCorrect: boolean) => void;
   onGameComplete: (finalScore: number) => void;
   onScoreUpdate?: (score: number, distance: number) => void;
+  onShowQuestion?: (question: GameQuestion, callback: (isCorrect: boolean) => void) => void;
 }
 
 interface Particle extends Graphics {
@@ -15,17 +17,98 @@ interface Particle extends Graphics {
 
 let keyboardHandler: ((e: KeyboardEvent) => void) | null = null;
 
-// Quiz questions
-const questions = [
-  { question: "What is 15 + 23?", answer: "38" },
-  { question: "How many wings does a bird have?", answer: "2" },
-  { question: "What is 9 x 7?", answer: "63" },
-  { question: "What do birds use to fly?", answer: "wings" },
-  { question: "What is 100 - 47?", answer: "53" },
-  { question: "What is 8 x 8?", answer: "64" },
-  { question: "What do baby birds hatch from?", answer: "eggs" },
-  { question: "What is 144 ÷ 12?", answer: "12" },
-  { question: "Can penguins fly? (yes or no)", answer: "no" }
+// MCQ Quiz questions
+const questions: GameQuestion[] = [
+  {
+    question: "What is 15 + 23?",
+    options: [
+      { id: "a", text: "35" },
+      { id: "b", text: "38" },
+      { id: "c", text: "40" },
+      { id: "d", text: "42" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "How many wings does a bird have?",
+    options: [
+      { id: "a", text: "1" },
+      { id: "b", text: "2" },
+      { id: "c", text: "3" },
+      { id: "d", text: "4" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "What is 9 x 7?",
+    options: [
+      { id: "a", text: "56" },
+      { id: "b", text: "61" },
+      { id: "c", text: "63" },
+      { id: "d", text: "72" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "What do birds use to fly?",
+    options: [
+      { id: "a", text: "Legs" },
+      { id: "b", text: "Wings" },
+      { id: "c", text: "Beak" },
+      { id: "d", text: "Tail" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "What is 100 - 47?",
+    options: [
+      { id: "a", text: "47" },
+      { id: "b", text: "50" },
+      { id: "c", text: "53" },
+      { id: "d", text: "57" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "What is 8 x 8?",
+    options: [
+      { id: "a", text: "56" },
+      { id: "b", text: "60" },
+      { id: "c", text: "64" },
+      { id: "d", text: "72" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "What do baby birds hatch from?",
+    options: [
+      { id: "a", text: "Nests" },
+      { id: "b", text: "Eggs" },
+      { id: "c", text: "Trees" },
+      { id: "d", text: "Leaves" }
+    ],
+    correctAnswer: "b"
+  },
+  {
+    question: "What is 144 ÷ 12?",
+    options: [
+      { id: "a", text: "10" },
+      { id: "b", text: "11" },
+      { id: "c", text: "12" },
+      { id: "d", text: "13" }
+    ],
+    correctAnswer: "c"
+  },
+  {
+    question: "Can penguins fly?",
+    options: [
+      { id: "a", text: "Yes" },
+      { id: "b", text: "No" },
+      { id: "c", text: "Sometimes" },
+      { id: "d", text: "Only underwater" }
+    ],
+    correctAnswer: "b"
+  }
 ];
 
 export async function initializePlaneGame(
@@ -117,8 +200,8 @@ export async function initializePlaneGame(
   app.stage.addChild(scoreText);
 
   const debrisText = new Text({
-    text: `Debris: 0`,
-    style: { fontFamily: 'Arial', fontSize: 20, fill: 0xff8800, fontWeight: 'bold' }
+    text: `Score: 0`,
+    style: { fontFamily: 'Arial', fontSize: 24, fill: 0x00aa00, fontWeight: 'bold' }
   });
   debrisText.x = 20;
   debrisText.y = 50;
@@ -133,7 +216,7 @@ export async function initializePlaneGame(
   app.stage.addChild(healthText);
 
   const instructionsText = new Text({
-    text: 'MOUSE: Move | CLICK: Shoot | Destroy debris for points!',
+    text: 'SHOOT debris to answer questions & earn points!',
     style: { fontFamily: 'Arial', fontSize: 18, fill: 0x2d3436, fontWeight: 'bold' }
   });
   instructionsText.anchor.set(0.5);
@@ -141,65 +224,8 @@ export async function initializePlaneGame(
   instructionsText.y = app.screen.height - 30;
   app.stage.addChild(instructionsText);
 
-  // Quiz overlay
-  const quizOverlay = new Graphics();
-  quizOverlay.beginFill(0x000000, 0.85);
-  quizOverlay.drawRect(0, 0, app.screen.width, app.screen.height);
-  quizOverlay.endFill();
-  quizOverlay.visible = false;
-  app.stage.addChild(quizOverlay);
-
-  const quizBox = new Graphics();
-  quizBox.beginFill(0xffffff);
-  quizBox.lineStyle(5, 0xff4444);
-  quizBox.drawRoundedRect(-300, -180, 600, 360, 20);
-  quizBox.endFill();
-  quizBox.x = app.screen.width / 2;
-  quizBox.y = app.screen.height / 2;
-  quizBox.visible = false;
-  app.stage.addChild(quizBox);
-
-  const quizQuestionText = new Text({
-    text: '',
-    style: { fontFamily: 'Arial', fontSize: 26, fill: 0x000000, align: 'center', wordWrap: true, wordWrapWidth: 550 }
-  });
-  quizQuestionText.anchor.set(0.5);
-  quizQuestionText.x = app.screen.width / 2;
-  quizQuestionText.y = app.screen.height / 2 - 80;
-  quizQuestionText.visible = false;
-  app.stage.addChild(quizQuestionText);
-
-  const quizInstructionText = new Text({
-    text: 'Type your answer and press ENTER',
-    style: { fontFamily: 'Arial', fontSize: 18, fill: 0x666666 }
-  });
-  quizInstructionText.anchor.set(0.5);
-  quizInstructionText.x = app.screen.width / 2;
-  quizInstructionText.y = app.screen.height / 2;
-  quizInstructionText.visible = false;
-  app.stage.addChild(quizInstructionText);
-
-  const quizAnswerText = new Text({
-    text: '',
-    style: { fontFamily: 'Arial', fontSize: 32, fill: 0xff4444, fontWeight: 'bold' }
-  });
-  quizAnswerText.anchor.set(0.5);
-  quizAnswerText.x = app.screen.width / 2;
-  quizAnswerText.y = app.screen.height / 2 + 60;
-  quizAnswerText.visible = false;
-  app.stage.addChild(quizAnswerText);
-
-  const quizFeedbackText = new Text({
-    text: '',
-    style: { fontFamily: 'Arial', fontSize: 24, fill: 0x00aa00 }
-  });
-  quizFeedbackText.anchor.set(0.5);
-  quizFeedbackText.x = app.screen.width / 2;
-  quizFeedbackText.y = app.screen.height / 2 + 120;
-  quizFeedbackText.visible = false;
-  app.stage.addChild(quizFeedbackText);
-
-  let userAnswer = '';
+  // Quiz state (no PixiJS modal elements needed - using React modal)
+  let questionCallback: ((isCorrect: boolean) => void) | null = null;
   let clouds: any[] = [];
   let birds: any[] = [];
   let debris: any[] = [];
@@ -413,64 +439,76 @@ export async function initializePlaneGame(
   });
 
   function showQuiz() {
-    gameState.paused = true;
-    gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
-    userAnswer = '';
-    quizOverlay.visible = true;
-    quizBox.visible = true;
-    quizQuestionText.text = "⚠️ BIRD STRIKE! ⚠️\n\n" + gameState.currentQuestion.question;
-    quizQuestionText.visible = true;
-    quizInstructionText.visible = true;
-    quizAnswerText.text = '';
-    quizAnswerText.visible = true;
-    quizFeedbackText.visible = false;
-  }
+    console.log('🎮 showQuiz called in plane game');
 
-  function hideQuiz() {
-    gameState.paused = false;
-    quizOverlay.visible = false;
-    quizBox.visible = false;
-    quizQuestionText.visible = false;
-    quizInstructionText.visible = false;
-    quizAnswerText.visible = false;
-    quizFeedbackText.visible = false;
-    gameState.invincible = true;
-    gameState.invincibleTimer = 120;
-  }
+    // Safety check: ensure callback exists
+    if (!callbacks.onShowQuestion) {
+      console.warn('⚠️ onShowQuestion callback not provided - resuming game');
+      gameState.paused = false;
+      gameState.invincible = true;
+      gameState.invincibleTimer = 120;
+      return;
+    }
 
-  function checkAnswer() {
-    const correct = userAnswer.toLowerCase().trim() === gameState.currentQuestion.answer.toLowerCase();
-    if (correct) {
-      quizFeedbackText.text = '✓ Correct!';
-      quizFeedbackText.style.fill = 0x00aa00;
-      quizFeedbackText.visible = true;
-      callbacks.onQuestionComplete?.(true);
-      setTimeout(() => hideQuiz(), 1500);
-    } else {
-      quizFeedbackText.text = '✗ Wrong! Try again!';
-      quizFeedbackText.style.fill = 0xff0000;
-      quizFeedbackText.visible = true;
-      userAnswer = '';
-      quizAnswerText.text = '';
-      callbacks.onQuestionComplete?.(false);
-      setTimeout(() => { quizFeedbackText.visible = false; }, 1000);
+    // Safety check: ensure questions array is not empty
+    if (!questions || questions.length === 0) {
+      console.warn('⚠️ No questions available - resuming game');
+      gameState.paused = false;
+      gameState.invincible = true;
+      gameState.invincibleTimer = 120;
+      return;
+    }
+
+    try {
+      gameState.paused = true;
+      gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+
+      console.log('📋 Selected question:', gameState.currentQuestion.question);
+      console.log('🔄 Calling onShowQuestion callback...');
+
+      // Show React modal via callback
+      callbacks.onShowQuestion(gameState.currentQuestion, (isCorrect: boolean) => {
+        console.log('🎯 Answer callback received in plane game:', isCorrect);
+        try {
+          // This callback is called when the user answers in the React modal
+          callbacks.onQuestionComplete?.(isCorrect);
+
+          // Always resume the game regardless of answer
+          gameState.paused = false;
+          gameState.invincible = true;
+
+          if (isCorrect) {
+            // Correct answer - increase score and give longer invincibility
+            gameState.score++;
+            debrisText.text = `Score: ${gameState.score}`;
+            gameState.invincibleTimer = 120;
+            console.log('✅ Correct! Score:', gameState.score);
+
+            // Update score in parent
+            callbacks.onScoreUpdate?.(gameState.score, gameState.distance);
+          } else {
+            // Wrong answer - shorter invincibility, no score
+            gameState.invincibleTimer = 60;
+            console.log('❌ Wrong answer! No points awarded');
+          }
+        } catch (error) {
+          console.error('Error in quiz answer callback:', error);
+          // Ensure game resumes even if there's an error
+          gameState.paused = false;
+          gameState.invincible = true;
+          gameState.invincibleTimer = 60;
+        }
+      });
+
+      console.log('✅ onShowQuestion callback called successfully');
+    } catch (error) {
+      console.error('❌ Error showing quiz:', error);
+      // Ensure game resumes if quiz fails to show
+      gameState.paused = false;
+      gameState.invincible = true;
+      gameState.invincibleTimer = 120;
     }
   }
-
-  keyboardHandler = (e: KeyboardEvent) => {
-    if (gameState.paused && !gameState.gameOver) {
-      if (e.key === 'Enter') {
-        checkAnswer();
-      } else if (e.key === 'Backspace') {
-        userAnswer = userAnswer.slice(0, -1);
-        quizAnswerText.text = userAnswer;
-      } else if (e.key.length === 1) {
-        userAnswer += e.key;
-        quizAnswerText.text = userAnswer;
-      }
-    }
-  };
-  window.addEventListener('keydown', keyboardHandler);
 
   // Game loop
   app.ticker.add((ticker) => {
@@ -515,17 +553,20 @@ export async function initializePlaneGame(
       birdSpawnTimer = 0;
     }
 
-    // Update
+    // Update bullets - when bullet hits debris, show question
     bullets = bullets.filter(b => {
       if (!b.update(delta)) { b.remove(); return false; }
       for (let i = debris.length - 1; i >= 0; i--) {
         if (b.checkCollision(debris[i])) {
+          console.log('💥 Debris destroyed by bullet! Showing question...');
           debris[i].destroy();
           debris[i].remove();
           debris.splice(i, 1);
           b.remove();
           gameState.debrisDestroyed++;
-          debrisText.text = `Debris: ${gameState.debrisDestroyed}`;
+
+          // Show question when debris is shot (score increases on correct answer)
+          showQuiz();
           return false;
         }
       }
@@ -536,12 +577,25 @@ export async function initializePlaneGame(
     debris = debris.filter(d => {
       if (!d.update(delta)) { d.remove(); return false; }
       if (!gameState.invincible && d.checkCollision(plane.x, plane.y)) {
+        console.log('💥 Hit debris - Health and score lost!');
         d.destroy();
         gameState.planeHealth--;
         healthText.text = `❤️ ${gameState.planeHealth}`;
+
+        // Lose 1 point when hit (but don't go below 0)
+        if (gameState.score > 0) {
+          gameState.score--;
+          debrisText.text = `Score: ${gameState.score}`;
+          callbacks.onScoreUpdate?.(gameState.score, gameState.distance);
+        }
+
+        // Give brief invincibility
+        gameState.invincible = true;
+        gameState.invincibleTimer = 60;
+
         if (gameState.planeHealth <= 0) {
           gameState.gameOver = true;
-          callbacks.onGameComplete?.(gameState.debrisDestroyed * 10);
+          callbacks.onGameComplete?.(gameState.score);
         }
         d.remove();
         return false;
@@ -552,15 +606,20 @@ export async function initializePlaneGame(
     birds = birds.filter(b => {
       if (!b.update(delta)) { b.remove(); return false; }
       if (!gameState.invincible && b.checkCollision(plane.x, plane.y)) {
+        console.log('🐦 Bird collision - Health lost!');
         b.hit();
         gameState.birdsHit++;
         gameState.planeHealth--;
         healthText.text = `❤️ ${gameState.planeHealth}`;
+
+        // Give brief invincibility after collision
+        gameState.invincible = true;
+        gameState.invincibleTimer = 60;
+
         if (gameState.planeHealth <= 0) {
+          console.log('💀 Game Over!');
           gameState.gameOver = true;
-          callbacks.onGameComplete?.(gameState.debrisDestroyed * 10);
-        } else {
-          showQuiz();
+          callbacks.onGameComplete?.(gameState.score);
         }
       }
       return true;
@@ -585,6 +644,6 @@ export async function initializePlaneGame(
     gameState.distance += Math.floor(gameState.speed * delta);
     gameState.speed += 0.001 * delta;
     scoreText.text = `Distance: ${gameState.distance}m`;
-    callbacks.onScoreUpdate?.(gameState.debrisDestroyed * 10, gameState.distance);
+    callbacks.onScoreUpdate?.(gameState.score, gameState.distance);
   });
 }
