@@ -214,8 +214,12 @@ export const StartPlayingDialog = ({
         await gameService.waitForQuestionGeneration(
           gameInstance.id,
           (status) => {
-            setGenerationProgress(status.progress);
-            console.log(`⏳ RAG processing: ${status.progress}%`);
+            // Calculate progress based on questions generated
+            const questionProgress = status.totalQuestions > 0
+              ? Math.round((status.questionsGenerated / status.totalQuestions) * 100)
+              : status.progress;
+            setGenerationProgress(questionProgress);
+            console.log(`⏳ RAG processing: ${questionProgress}% (${status.questionsGenerated}/${status.totalQuestions} questions)`);
           }
         );
       }
