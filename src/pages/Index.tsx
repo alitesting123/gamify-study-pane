@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, TrendingUp, Rocket } from "lucide-react";
 import { GameTemplate } from "@/types/game";
+import { config } from "@/config/env";
 
 // Pre-defined game templates
 // These are existing game structures that can have questions added from study materials
@@ -106,13 +107,15 @@ const Index = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button
-              onClick={() => setStartPlayingDialogOpen(true)}
-              className="bg-gradient-primary hover:opacity-90 shadow-glow"
-            >
-              <Rocket className="h-4 w-4 mr-2" />
-              Start Playing
-            </Button>
+            {config.enableGameCreation && (
+              <Button
+                onClick={() => setStartPlayingDialogOpen(true)}
+                className="bg-gradient-primary hover:opacity-90 shadow-glow"
+              >
+                <Rocket className="h-4 w-4 mr-2" />
+                Start Playing
+              </Button>
+            )}
           </div>
 
         </div>
@@ -124,16 +127,24 @@ const Index = () => {
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-semibold">Available Game Templates</h2>
-              <span className="text-sm text-muted-foreground">
-                - Click "Start Playing" above to begin
-              </span>
+              {config.enableGameCreation && (
+                <span className="text-sm text-muted-foreground">
+                  - Click "Start Playing" above to begin
+                </span>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredTemplates.map((game) => (
                 <GameCard
                   key={game.id}
-                  {...game}
+                  title={game.title}
+                  description={game.description}
+                  category={game.category}
+                  difficulty={game.difficulty}
+                  estimatedTime={game.estimatedTime}
+                  completionRate={game.completionRate}
+                  gameType={game.gameType}
                 />
               ))}
             </div>
