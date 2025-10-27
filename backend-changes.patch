@@ -1,0 +1,1239 @@
+From fc13e0cafcff1c0114bf3f36247d9a6927a41012 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 27 Oct 2025 15:38:06 +0000
+Subject: [PATCH] Implement document upload and RAG question generation
+ endpoints
+
+---
+ apps/ai_engine/question_generator.py | 221 ++++++++++++++++
+ apps/games/api/urls.py               |  16 +-
+ apps/games/api/views_extensions.py   | 364 +++++++++++++++++++++++++++
+ apps/games/models.py                 |  26 +-
+ apps/study_materials/__init__.py     |   1 +
+ apps/study_materials/api/__init__.py |   1 +
+ apps/study_materials/api/urls.py     |   8 +
+ apps/study_materials/api/views.py    | 216 ++++++++++++++++
+ apps/study_materials/models.py       |  64 +++++
+ apps/study_materials/serializers.py  |  58 +++++
+ apps/study_materials/utils.py        | 106 ++++++++
+ config/settings.py                   |   9 +-
+ config/urls.py                       |   3 +-
+ 13 files changed, 1076 insertions(+), 17 deletions(-)
+ create mode 100644 apps/ai_engine/question_generator.py
+ create mode 100644 apps/games/api/views_extensions.py
+ create mode 100644 apps/study_materials/__init__.py
+ create mode 100644 apps/study_materials/api/__init__.py
+ create mode 100644 apps/study_materials/api/urls.py
+ create mode 100644 apps/study_materials/api/views.py
+ create mode 100644 apps/study_materials/models.py
+ create mode 100644 apps/study_materials/serializers.py
+ create mode 100644 apps/study_materials/utils.py
+
+diff --git a/apps/ai_engine/question_generator.py b/apps/ai_engine/question_generator.py
+new file mode 100644
+index 0000000..e15aedb
+--- /dev/null
++++ b/apps/ai_engine/question_generator.py
+@@ -0,0 +1,221 @@
++"""
++Question Generator using RAG to extract questions from study materials
++"""
++
++import logging
++from typing import List, Dict, Any
++from langchain_openai import ChatOpenAI
++from langchain.prompts import ChatPromptTemplate
++import os
++
++logger = logging.getLogger(__name__)
++
++
++class QuestionGenerator:
++    """Generate questions from study material text using LLM"""
++
++    def __init__(self, use_openai: bool = True):
++        """
++        Initialize Question Generator
++
++        Args:
++            use_openai: If True, use OpenAI GPT. If False, return sample questions.
++        """
++        self.use_openai = use_openai and bool(os.getenv('OPENAI_API_KEY'))
++
++        if self.use_openai:
++            try:
++                self.llm = ChatOpenAI(
++                    model="gpt-4",
++                    temperature=0.7,
++                    max_tokens=3000
++                )
++                logger.info("✅ QuestionGenerator initialized with OpenAI GPT-4")
++            except Exception as e:
++                logger.error(f"Failed to initialize OpenAI: {e}")
++                self.use_openai = False
++        else:
++            logger.warning("⚠️ OpenAI not available. Will use fallback question generation.")
++
++    def generate_questions(
++        self,
++        text_content: str,
++        questions_count: int = 10,
++        difficulty: str = 'Medium',
++        game_type: str = 'quiz'
++    ) -> List[Dict[str, Any]]:
++        """
++        Generate questions from study material text
++
++        Args:
++            text_content: Extracted text from study material
++            questions_count: Number of questions to generate
++            difficulty: Question difficulty ('Easy', 'Medium', 'Hard')
++            game_type: Type of game ('quiz', 'plane', 'fishing', 'circuit')
++
++        Returns:
++            List of question dictionaries with format:
++            [
++                {
++                    "question": "What is...?",
++                    "answers": ["Option A", "Option B", "Option C", "Option D"],
++                    "correctIndex": 0,
++                    "explanation": "..."
++                }
++            ]
++        """
++        if not self.use_openai:
++            return self._generate_fallback_questions(text_content, questions_count, difficulty)
++
++        try:
++            logger.info(f"Generating {questions_count} {difficulty} questions from text ({len(text_content)} chars)")
++
++            # Truncate text if too long (GPT-4 has token limits)
++            max_chars = 10000
++            if len(text_content) > max_chars:
++                logger.warning(f"Text too long ({len(text_content)} chars). Truncating to {max_chars} chars")
++                text_content = text_content[:max_chars] + "..."
++
++            # Create prompt template
++            system_prompt = """You are an expert educational content creator. Your task is to generate
++high-quality multiple-choice questions from the provided study material.
++
++Requirements:
++- Create exactly {count} questions
++- Difficulty level: {difficulty}
++- Each question must have exactly 4 answer options
++- One answer must be correct
++- Include brief explanations
++- Questions should test understanding, not just memorization
++- Cover different parts of the material
++
++Output format (JSON array):
++[
++    {{
++        "question": "What is the main concept of...?",
++        "answers": ["Correct answer", "Wrong answer 1", "Wrong answer 2", "Wrong answer 3"],
++        "correctIndex": 0,
++        "explanation": "Brief explanation of why the answer is correct"
++    }}
++]
++
++IMPORTANT: Return ONLY the JSON array, no additional text or markdown."""
++
++            user_prompt = """Study Material:
++---
++{text}
++---
++
++Generate {count} multiple-choice questions with {difficulty} difficulty.
++Return ONLY a JSON array of questions."""
++
++            prompt_template = ChatPromptTemplate.from_messages([
++                ("system", system_prompt),
++                ("user", user_prompt)
++            ])
++
++            # Format prompt
++            formatted_prompt = prompt_template.format_messages(
++                count=questions_count,
++                difficulty=difficulty,
++                text=text_content
++            )
++
++            # Call LLM
++            response = self.llm.invoke(formatted_prompt)
++            response_text = response.content.strip()
++
++            logger.info(f"LLM Response received ({len(response_text)} chars)")
++
++            # Parse JSON response
++            import json
++
++            # Try to extract JSON from response (in case LLM adds markdown)
++            if "```json" in response_text:
++                response_text = response_text.split("```json")[1].split("```")[0].strip()
++            elif "```" in response_text:
++                response_text = response_text.split("```")[1].split("```")[0].strip()
++
++            questions = json.loads(response_text)
++
++            # Validate structure
++            if not isinstance(questions, list):
++                raise ValueError("Response is not a list")
++
++            for q in questions:
++                if not all(key in q for key in ['question', 'answers', 'correctIndex']):
++                    raise ValueError(f"Invalid question structure: {q}")
++
++            logger.info(f"✅ Successfully generated {len(questions)} questions")
++            return questions
++
++        except Exception as e:
++            logger.error(f"Error generating questions: {e}")
++            logger.info("Falling back to sample questions")
++            return self._generate_fallback_questions(text_content, questions_count, difficulty)
++
++    def _generate_fallback_questions(
++        self,
++        text_content: str,
++        questions_count: int,
++        difficulty: str
++    ) -> List[Dict[str, Any]]:
++        """
++        Generate fallback questions when OpenAI is unavailable
++
++        Creates simple questions based on the text content
++        """
++        logger.info("Generating fallback questions")
++
++        # Extract first few sentences for context
++        sentences = text_content.split('.')[:5]
++        context = '. '.join(sentences) if sentences else "the study material"
++
++        questions = []
++        for i in range(min(questions_count, 10)):
++            question = {
++                "question": f"Question {i + 1}: What can you learn from {context[:50]}...?",
++                "answers": [
++                    f"Key concept {i + 1}",
++                    "Alternative answer",
++                    "Another option",
++                    "Different choice"
++                ],
++                "correctIndex": 0,
++                "explanation": f"This question tests understanding of the material content."
++            }
++            questions.append(question)
++
++        return questions
++
++    def generate_questions_with_progress(
++        self,
++        text_content: str,
++        questions_count: int,
++        difficulty: str,
++        game_type: str,
++        progress_callback=None
++    ) -> List[Dict[str, Any]]:
++        """
++        Generate questions with progress updates
++
++        Args:
++            text_content: Study material text
++            questions_count: Number of questions
++            difficulty: Question difficulty
++            game_type: Type of game
++            progress_callback: Function to call with progress updates (percent, message)
++
++        Returns:
++            List of questions
++        """
++        if progress_callback:
++            progress_callback(10, "Analyzing study material...")
++
++        # Generate all questions at once
++        questions = self.generate_questions(text_content, questions_count, difficulty, game_type)
++
++        if progress_callback:
++            progress_callback(100, f"Generated {len(questions)} questions")
++
++        return questions
+diff --git a/apps/games/api/urls.py b/apps/games/api/urls.py
+index 0a383a0..80aa3a5 100644
+--- a/apps/games/api/urls.py
++++ b/apps/games/api/urls.py
+@@ -1,8 +1,14 @@
+ from django.urls import path
+-from .views import generate_game, list_games, play_game
++from . import views
++from . import views_extensions
+ 
+ urlpatterns = [
+-    path('generate/', generate_game, name='generate-game'),
+-    path('', list_games, name='list-games'),
+-    path('<uuid:game_id>/play/', play_game, name='play-game'),
+-]
+\ No newline at end of file
++    # Original endpoints
++    path('generate/', views.generate_game, name='generate-game'),
++    path('', views.list_games, name='list-games'),
++    path('<uuid:game_id>/play/', views.play_game, name='play-game'),
++
++    # New endpoints for document-based question generation
++    path('generate-questions', views_extensions.generate_questions_from_material, name='generate-questions'),
++    path('generate-questions/<uuid:game_id>/status', views_extensions.get_generation_status, name='generation-status'),
++]
+diff --git a/apps/games/api/views_extensions.py b/apps/games/api/views_extensions.py
+new file mode 100644
+index 0000000..923c1df
+--- /dev/null
++++ b/apps/games/api/views_extensions.py
+@@ -0,0 +1,364 @@
++"""
++Extended Game API Views for Document-Based Question Generation
++"""
++
++import logging
++from rest_framework.decorators import api_view, permission_classes
++from rest_framework.response import Response
++from rest_framework.permissions import IsAuthenticated
++from rest_framework import status
++from django.shortcuts import get_object_or_404
++
++from ..models import UserGame
++from apps.study_materials.models import StudyMaterial
++from apps.ai_engine.question_generator import QuestionGenerator
++
++logger = logging.getLogger(__name__)
++
++
++# Game template mapping (frontend template IDs to game types)
++TEMPLATE_ID_TO_GAME_TYPE = {
++    1: 'plane',    # Sky Pilot Adventure
++    2: 'fishing',  # Deep Sea Fishing
++    3: 'circuit',  # Circuit Runner
++}
++
++
++@api_view(['POST'])
++@permission_classes([IsAuthenticated])
++def generate_questions_from_material(request):
++    """
++    Generate questions from uploaded study material using RAG
++
++    POST /api/games/generate-questions
++
++    Request:
++        {
++            "templateId": 1,
++            "fileId": "uuid",
++            "gameType": "plane",
++            "questionsCount": 10,
++            "difficulty": "Medium"
++        }
++
++    Response:
++        {
++            "success": true,
++            "data": {
++                "id": "game-uuid",
++                "templateId": 1,
++                "title": "Generating game...",
++                "description": "Questions are being generated from your study material",
++                "difficulty": "Medium",
++                "questionsCount": 10,
++                "status": "processing",
++                "progress": 0,
++                "createdAt": "2025-10-27T12:00:00Z"
++            }
++        }
++    """
++    try:
++        # Validate request
++        template_id = request.data.get('templateId')
++        file_id = request.data.get('fileId')
++        game_type = request.data.get('gameType')
++        questions_count = request.data.get('questionsCount', 10)
++        difficulty = request.data.get('difficulty', 'Medium')
++
++        # Validation
++        if not template_id:
++            return Response(
++                {'success': False, 'message': 'templateId is required'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++
++        if not file_id:
++            return Response(
++                {'success': False, 'message': 'fileId is required'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++
++        if not game_type:
++            game_type = TEMPLATE_ID_TO_GAME_TYPE.get(template_id, 'quiz')
++
++        # Get study material
++        try:
++            study_material = StudyMaterial.objects.get(id=file_id, user=request.user)
++        except StudyMaterial.DoesNotExist:
++            return Response(
++                {'success': False, 'message': 'Study material not found'},
++                status=status.HTTP_404_NOT_FOUND
++            )
++
++        # Check if extraction was successful
++        if study_material.extraction_status != 'extracted':
++            return Response(
++                {'success': False, 'message': f'Study material not ready. Status: {study_material.extraction_status}'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++
++        if not study_material.extracted_text:
++            return Response(
++                {'success': False, 'message': 'No text content found in study material'},
++                status=status.HTTP_400_BAD_REQUEST
++            )
++
++        logger.info(f'Generating questions from study material: {file_id} for user {request.user.email}')
++
++        # Create game with 'processing' status
++        game_title = f"{difficulty} {game_type.capitalize()} Game"
++        user_game = UserGame.objects.create(
++            user=request.user,
++            title=game_title,
++            description=f"Questions are being generated from {study_material.file_name}",
++            pixijs_code="",  # Will be added later with game template
++            game_data={},
++            status='processing',
++            user_prompt=f"Generate {questions_count} questions from {study_material.file_name}",
++            study_material_id=study_material.id,
++            questions_count=questions_count,
++            questions_generated=0,
++            generation_progress=10,
++            generation_message="Starting question generation..."
++        )
++
++        logger.info(f'Created game {user_game.id} with status processing')
++
++        # Generate questions using RAG
++        try:
++            # Update progress
++            user_game.generation_progress = 30
++            user_game.generation_message = "Analyzing study material..."
++            user_game.save()
++
++            # Initialize question generator
++            question_gen = QuestionGenerator(use_openai=True)
++
++            # Generate questions
++            user_game.generation_progress = 50
++            user_game.generation_message = f"Generating {questions_count} questions..."
++            user_game.save()
++
++            questions = question_gen.generate_questions(
++                text_content=study_material.extracted_text,
++                questions_count=questions_count,
++                difficulty=difficulty,
++                game_type=game_type
++            )
++
++            logger.info(f'Generated {len(questions)} questions for game {user_game.id}')
++
++            # Update game with questions
++            user_game.game_data = {
++                'questions': questions,
++                'game_type': game_type,
++                'difficulty': difficulty,
++                'source_file': study_material.file_name,
++            }
++            user_game.questions_generated = len(questions)
++            user_game.generation_progress = 80
++            user_game.generation_message = "Preparing game..."
++            user_game.save()
++
++            # Get game template code (placeholder for now)
++            user_game.pixijs_code = _get_game_template_code(game_type)
++            user_game.status = 'ready'
++            user_game.generation_progress = 100
++            user_game.generation_message = "Game ready to play!"
++            user_game.title = f"{study_material.file_name} - {game_type.capitalize()} Quiz"
++            user_game.description = f"Play and test your knowledge from {study_material.file_name}"
++            user_game.save()
++
++            logger.info(f'✅ Game {user_game.id} ready with {len(questions)} questions')
++
++            # Return response
++            return Response(
++                {
++                    'success': True,
++                    'data': {
++                        'id': str(user_game.id),
++                        'templateId': template_id,
++                        'title': user_game.title,
++                        'description': user_game.description,
++                        'difficulty': difficulty,
++                        'questionsCount': len(questions),
++                        'status': user_game.status,
++                        'progress': user_game.generation_progress,
++                        'createdAt': user_game.created_at.isoformat(),
++                    }
++                },
++                status=status.HTTP_201_CREATED
++            )
++
++        except Exception as e:
++            logger.error(f'Error generating questions: {e}')
++            user_game.status = 'failed'
++            user_game.description = f"Failed to generate questions: {str(e)}"
++            user_game.generation_message = str(e)
++            user_game.save()
++
++            return Response(
++                {'success': False, 'message': f'Question generation failed: {str(e)}'},
++                status=status.HTTP_500_INTERNAL_SERVER_ERROR
++            )
++
++    except Exception as e:
++        logger.error(f'Error in generate_questions_from_material: {e}')
++        return Response(
++            {'success': False, 'message': str(e)},
++            status=status.HTTP_500_INTERNAL_SERVER_ERROR
++        )
++
++
++@api_view(['GET'])
++@permission_classes([IsAuthenticated])
++def get_generation_status(request, game_id):
++    """
++    Get status of question generation
++
++    GET /api/games/generate-questions/{game_id}/status
++
++    Response:
++        {
++            "success": true,
++            "data": {
++                "gameId": "uuid",
++                "status": "processing",
++                "progress": 65,
++                "message": "Generating questions...",
++                "questionsGenerated": 6,
++                "totalQuestions": 10
++            }
++        }
++    """
++    try:
++        game = get_object_or_404(UserGame, id=game_id, user=request.user)
++
++        return Response(
++            {
++                'success': True,
++                'data': {
++                    'gameId': str(game.id),
++                    'status': game.status,
++                    'progress': game.generation_progress,
++                    'message': game.generation_message or f'Status: {game.status}',
++                    'questionsGenerated': game.questions_generated,
++                    'totalQuestions': game.questions_count,
++                    'error': game.description if game.status == 'failed' else None
++                }
++            },
++            status=status.HTTP_200_OK
++        )
++
++    except Exception as e:
++        logger.error(f'Error getting generation status: {e}')
++        return Response(
++            {'success': False, 'message': str(e)},
++            status=status.HTTP_500_INTERNAL_SERVER_ERROR
++        )
++
++
++def _get_game_template_code(game_type: str) -> str:
++    """
++    Get placeholder game template code for the specified game type
++
++    In production, this should load actual PixiJS game templates
++    """
++    template_code = f"""
++(async () => {{
++    // Game container
++    const container = document.getElementById('game-container') || document.body;
++
++    // Access game data from window.GAME_DATA
++    const gameData = window.GAME_DATA || {{ questions: [] }};
++    const questions = gameData.questions || [];
++
++    console.log('Game Type: {game_type}');
++    console.log('Questions loaded:', questions.length);
++
++    // Simple quiz display
++    const quizContainer = document.createElement('div');
++    quizContainer.style.cssText = 'padding: 20px; font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;';
++
++    let currentQuestion = 0;
++    let score = 0;
++
++    function showQuestion() {{
++        if (currentQuestion >= questions.length) {{
++            showResults();
++            return;
++        }}
++
++        const q = questions[currentQuestion];
++        quizContainer.innerHTML = `
++            <div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
++                <h2 style="color: #333;">Question ${{currentQuestion + 1}} of ${{questions.length}}</h2>
++                <p style="font-size: 18px; margin: 20px 0;">${{q.question}}</p>
++                <div id="answers"></div>
++                <div id="feedback" style="margin-top: 20px; padding: 10px; border-radius: 5px; display: none;"></div>
++            </div>
++            <div style="text-align: right;">
++                <span style="font-size: 18px; color: #666;">Score: ${{score}} / ${{questions.length}}</span>
++            </div>
++        `;
++
++        const answersDiv = quizContainer.querySelector('#answers');
++        q.answers.forEach((answer, index) => {{
++            const btn = document.createElement('button');
++            btn.textContent = answer;
++            btn.style.cssText = 'display: block; width: 100%; padding: 15px; margin: 10px 0; font-size: 16px; border: 2px solid #ddd; border-radius: 5px; cursor: pointer; background: white; text-align: left;';
++            btn.onclick = () => checkAnswer(index, q.correctIndex);
++            answersDiv.appendChild(btn);
++        }});
++    }}
++
++    function checkAnswer(selected, correct) {{
++        const feedback = quizContainer.querySelector('#feedback');
++        const buttons = quizContainer.querySelectorAll('#answers button');
++
++        buttons.forEach(btn => btn.disabled = true);
++
++        if (selected === correct) {{
++            score++;
++            buttons[selected].style.background = '#4CAF50';
++            buttons[selected].style.color = 'white';
++            feedback.textContent = '✅ Correct!';
++            feedback.style.background = '#d4edda';
++            feedback.style.color = '#155724';
++        }} else {{
++            buttons[selected].style.background = '#f44336';
++            buttons[selected].style.color = 'white';
++            buttons[correct].style.background = '#4CAF50';
++            buttons[correct].style.color = 'white';
++            feedback.textContent = '❌ Incorrect. The correct answer was: ' + questions[currentQuestion].answers[correct];
++            feedback.style.background = '#f8d7da';
++            feedback.style.color = '#721c24';
++        }}
++
++        feedback.style.display = 'block';
++
++        setTimeout(() => {{
++            currentQuestion++;
++            showQuestion();
++        }}, 2000);
++    }}
++
++    function showResults() {{
++        const percentage = Math.round((score / questions.length) * 100);
++        quizContainer.innerHTML = `
++            <div style="background: #f5f5f5; padding: 40px; border-radius: 10px; text-align: center;">
++                <h1 style="color: #333;">Quiz Complete!</h1>
++                <p style="font-size: 48px; margin: 20px 0;">${{percentage}}%</p>
++                <p style="font-size: 24px; color: #666;">You scored ${{score}} out of ${{questions.length}}</p>
++                <button onclick="location.reload()" style="margin-top: 30px; padding: 15px 30px; font-size: 18px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">
++                    Try Again
++                </button>
++            </div>
++        `;
++    }}
++
++    container.appendChild(quizContainer);
++    showQuestion();
++}})();
++"""
++    return template_code
+diff --git a/apps/games/models.py b/apps/games/models.py
+index 5e7fc6b..3fddc57 100644
+--- a/apps/games/models.py
++++ b/apps/games/models.py
+@@ -5,28 +5,40 @@ import uuid
+ 
+ class UserGame(models.Model):
+     """Simplified game model for MVP"""
+-    
++
+     STATUS_CHOICES = [
+         ('generating', 'Generating'),
++        ('processing', 'Processing'),  # For question generation
+         ('ready', 'Ready'),
+         ('failed', 'Failed'),
+     ]
+-    
++
+     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+-    
++
+     # Game details
+     title = models.CharField(max_length=200)
+     description = models.TextField()
+-    
++
+     # Generated content
+-    pixijs_code = models.TextField()
++    pixijs_code = models.TextField(blank=True)
+     game_data = models.JSONField(default=dict)
+-    
++
+     # Status
+     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='generating')
+     user_prompt = models.TextField()
+-    
++
++    # Progress tracking (for RAG question generation)
++    generation_progress = models.IntegerField(default=0)  # 0-100
++    generation_message = models.CharField(max_length=500, blank=True)
++
++    # Question metrics
++    questions_count = models.IntegerField(default=0)
++    questions_generated = models.IntegerField(default=0)
++
++    # Link to study material (if generated from document)
++    study_material_id = models.UUIDField(null=True, blank=True, help_text='UUID of linked StudyMaterial')
++
+     created_at = models.DateTimeField(auto_now_add=True)
+     
+     class Meta:
+diff --git a/apps/study_materials/__init__.py b/apps/study_materials/__init__.py
+new file mode 100644
+index 0000000..95ea034
+--- /dev/null
++++ b/apps/study_materials/__init__.py
+@@ -0,0 +1 @@
++# Study Materials App
+\ No newline at end of file
+diff --git a/apps/study_materials/api/__init__.py b/apps/study_materials/api/__init__.py
+new file mode 100644
+index 0000000..c494f6c
+--- /dev/null
++++ b/apps/study_materials/api/__init__.py
+@@ -0,0 +1 @@
++# Study Materials API
+\ No newline at end of file
+diff --git a/apps/study_materials/api/urls.py b/apps/study_materials/api/urls.py
+new file mode 100644
+index 0000000..3baf132
+--- /dev/null
++++ b/apps/study_materials/api/urls.py
+@@ -0,0 +1,8 @@
++from django.urls import path
++from . import views
++
++urlpatterns = [
++    path('upload', views.upload_study_material, name='upload-study-material'),
++    path('', views.list_study_materials, name='list-study-materials'),
++    path('<uuid:file_id>/', views.get_study_material, name='get-study-material'),
++]
+diff --git a/apps/study_materials/api/views.py b/apps/study_materials/api/views.py
+new file mode 100644
+index 0000000..01b87ce
+--- /dev/null
++++ b/apps/study_materials/api/views.py
+@@ -0,0 +1,216 @@
++import logging
++from datetime import datetime
++from rest_framework import status
++from rest_framework.decorators import api_view, permission_classes
++from rest_framework.permissions import IsAuthenticated
++from rest_framework.response import Response
++from django.core.files.storage import default_storage
++
++from ..models import StudyMaterial
++from ..serializers import StudyMaterialUploadSerializer, StudyMaterialSerializer
++from ..utils import extract_text_from_file
++
++logger = logging.getLogger(__name__)
++
++
++@api_view(['POST'])
++@permission_classes([IsAuthenticated])
++def upload_study_material(request):
++    """
++    Upload a study material file (PDF, DOC, DOCX, TXT, MD)
++
++    POST /api/study-materials/upload
++
++    Request:
++        - file: File (multipart/form-data)
++
++    Response:
++        {
++            "success": true,
++            "data": {
++                "fileId": "uuid",
++                "fileName": "study-notes.pdf",
++                "fileSize": 1024000,
++                "fileType": "pdf",
++                "uploadedAt": "2025-10-27T12:00:00Z",
++                "extractionStatus": "extracted",
++                "wordCount": 5000
++            }
++        }
++    """
++    try:
++        # Validate request
++        serializer = StudyMaterialUploadSerializer(data=request.data)
++        if not serializer.is_valid():
++            return Response(
++                {
++                    'success': False,
++                    'message': 'Invalid file upload',
++                    'errors': serializer.errors
++                },
++                status=status.HTTP_400_BAD_REQUEST
++            )
++
++        uploaded_file = serializer.validated_data['file']
++
++        # Determine file type
++        file_ext = uploaded_file.name.lower().split('.')[-1] if '.' in uploaded_file.name else 'unknown'
++        if file_ext == 'doc':
++            file_type = 'docx'  # Treat .doc as docx for processing
++        else:
++            file_type = file_ext
++
++        # Create StudyMaterial instance
++        study_material = StudyMaterial.objects.create(
++            user=request.user,
++            file=uploaded_file,
++            file_name=uploaded_file.name,
++            file_size=uploaded_file.size,
++            file_type=file_type,
++            extraction_status='extracting'
++        )
++
++        logger.info(f'File uploaded: {study_material.id} - {uploaded_file.name}')
++
++        # Extract text from file
++        try:
++            file_path = study_material.file.path
++            success, extracted_text, error_message = extract_text_from_file(file_path, file_type)
++
++            if success and extracted_text:
++                study_material.extracted_text = extracted_text
++                study_material.extraction_status = 'extracted'
++                study_material.processed_at = datetime.now()
++
++                # Calculate metadata
++                word_count = len(extracted_text.split())
++                study_material.metadata = {
++                    'word_count': word_count,
++                    'character_count': len(extracted_text),
++                    'extraction_method': file_type,
++                }
++
++                study_material.save()
++
++                logger.info(f'Text extracted successfully: {word_count} words from {uploaded_file.name}')
++
++                # Return success response
++                return Response(
++                    {
++                        'success': True,
++                        'data': {
++                            'fileId': str(study_material.id),
++                            'fileName': study_material.file_name,
++                            'fileSize': study_material.file_size,
++                            'fileType': study_material.file_type,
++                            'uploadedAt': study_material.uploaded_at.isoformat(),
++                            'extractionStatus': study_material.extraction_status,
++                            'wordCount': word_count,
++                        }
++                    },
++                    status=status.HTTP_201_CREATED
++                )
++            else:
++                # Extraction failed
++                study_material.extraction_status = 'failed'
++                study_material.extraction_error = error_message or 'Unknown extraction error'
++                study_material.save()
++
++                logger.error(f'Text extraction failed: {error_message}')
++
++                return Response(
++                    {
++                        'success': False,
++                        'message': 'File uploaded but text extraction failed',
++                        'error': error_message
++                    },
++                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
++                )
++
++        except Exception as extraction_error:
++            logger.error(f'Exception during text extraction: {extraction_error}')
++
++            study_material.extraction_status = 'failed'
++            study_material.extraction_error = str(extraction_error)
++            study_material.save()
++
++            return Response(
++                {
++                    'success': False,
++                    'message': 'File uploaded but processing failed',
++                    'error': str(extraction_error)
++                },
++                status=status.HTTP_500_INTERNAL_SERVER_ERROR
++            )
++
++    except Exception as e:
++        logger.error(f'Error uploading study material: {e}')
++        return Response(
++            {
++                'success': False,
++                'message': 'Failed to upload file',
++                'error': str(e)
++            },
++            status=status.HTTP_500_INTERNAL_SERVER_ERROR
++        )
++
++
++@api_view(['GET'])
++@permission_classes([IsAuthenticated])
++def list_study_materials(request):
++    """
++    List all study materials for the authenticated user
++
++    GET /api/study-materials/
++
++    Response:
++        {
++            "success": true,
++            "data": [...]
++        }
++    """
++    study_materials = StudyMaterial.objects.filter(user=request.user)
++    serializer = StudyMaterialSerializer(study_materials, many=True)
++
++    return Response(
++        {
++            'success': True,
++            'data': serializer.data
++        },
++        status=status.HTTP_200_OK
++    )
++
++
++@api_view(['GET'])
++@permission_classes([IsAuthenticated])
++def get_study_material(request, file_id):
++    """
++    Get details of a specific study material
++
++    GET /api/study-materials/{file_id}/
++
++    Response:
++        {
++            "success": true,
++            "data": {...}
++        }
++    """
++    try:
++        study_material = StudyMaterial.objects.get(id=file_id, user=request.user)
++        serializer = StudyMaterialSerializer(study_material)
++
++        return Response(
++            {
++                'success': True,
++                'data': serializer.data
++            },
++            status=status.HTTP_200_OK
++        )
++    except StudyMaterial.DoesNotExist:
++        return Response(
++            {
++                'success': False,
++                'message': 'Study material not found'
++            },
++            status=status.HTTP_404_NOT_FOUND
++        )
+diff --git a/apps/study_materials/models.py b/apps/study_materials/models.py
+new file mode 100644
+index 0000000..feeb53d
+--- /dev/null
++++ b/apps/study_materials/models.py
+@@ -0,0 +1,64 @@
++import uuid
++from django.db import models
++from apps.users.models import User
++
++
++class StudyMaterial(models.Model):
++    """Model for storing uploaded study materials"""
++
++    STATUS_CHOICES = [
++        ('pending', 'Pending'),
++        ('extracting', 'Extracting'),
++        ('extracted', 'Extracted'),
++        ('failed', 'Failed'),
++    ]
++
++    FILE_TYPE_CHOICES = [
++        ('pdf', 'PDF'),
++        ('docx', 'Word Document'),
++        ('doc', 'Word Document (Legacy)'),
++        ('txt', 'Text File'),
++        ('md', 'Markdown'),
++    ]
++
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
++    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_materials')
++
++    # File information
++    file = models.FileField(upload_to='study_materials/%Y/%m/%d/')
++    file_name = models.CharField(max_length=255)
++    file_size = models.IntegerField(help_text='File size in bytes')
++    file_type = models.CharField(max_length=10, choices=FILE_TYPE_CHOICES)
++
++    # Extracted content
++    extracted_text = models.TextField(blank=True, help_text='Extracted text from document')
++    extraction_status = models.CharField(
++        max_length=20,
++        choices=STATUS_CHOICES,
++        default='pending'
++    )
++    extraction_error = models.TextField(blank=True)
++
++    # Metadata
++    metadata = models.JSONField(default=dict, blank=True, help_text='Additional metadata like page count, word count, etc.')
++
++    # Timestamps
++    uploaded_at = models.DateTimeField(auto_now_add=True)
++    processed_at = models.DateTimeField(null=True, blank=True)
++
++    class Meta:
++        ordering = ['-uploaded_at']
++        indexes = [
++            models.Index(fields=['-uploaded_at']),
++            models.Index(fields=['user', '-uploaded_at']),
++        ]
++
++    def __str__(self):
++        return f"{self.file_name} ({self.user.email})"
++
++    @property
++    def word_count(self):
++        """Calculate approximate word count from extracted text"""
++        if self.extracted_text:
++            return len(self.extracted_text.split())
++        return 0
+diff --git a/apps/study_materials/serializers.py b/apps/study_materials/serializers.py
+new file mode 100644
+index 0000000..ac473dc
+--- /dev/null
++++ b/apps/study_materials/serializers.py
+@@ -0,0 +1,58 @@
++from rest_framework import serializers
++from .models import StudyMaterial
++
++
++class StudyMaterialSerializer(serializers.ModelSerializer):
++    """Serializer for StudyMaterial model"""
++
++    word_count = serializers.IntegerField(read_only=True)
++
++    class Meta:
++        model = StudyMaterial
++        fields = [
++            'id',
++            'file_name',
++            'file_size',
++            'file_type',
++            'extraction_status',
++            'word_count',
++            'metadata',
++            'uploaded_at',
++            'processed_at',
++        ]
++        read_only_fields = [
++            'id',
++            'extraction_status',
++            'uploaded_at',
++            'processed_at',
++            'word_count',
++        ]
++
++
++class StudyMaterialUploadSerializer(serializers.Serializer):
++    """Serializer for file upload"""
++
++    file = serializers.FileField(required=True)
++
++    def validate_file(self, value):
++        """Validate uploaded file"""
++        # Check file size (10MB max)
++        max_size = 10 * 1024 * 1024  # 10MB
++        if value.size > max_size:
++            raise serializers.ValidationError(
++                f'File size cannot exceed {max_size / (1024 * 1024):.1f}MB. '
++                f'Your file is {value.size / (1024 * 1024):.1f}MB.'
++            )
++
++        # Check file extension
++        allowed_extensions = ['.pdf', '.doc', '.docx', '.txt', '.md']
++        file_ext = value.name.lower().split('.')[-1] if '.' in value.name else ''
++        file_ext_with_dot = f'.{file_ext}'
++
++        if file_ext_with_dot not in allowed_extensions:
++            raise serializers.ValidationError(
++                f'Unsupported file type: {file_ext}. '
++                f'Allowed types: {", ".join(allowed_extensions)}'
++            )
++
++        return value
+diff --git a/apps/study_materials/utils.py b/apps/study_materials/utils.py
+new file mode 100644
+index 0000000..3988806
+--- /dev/null
++++ b/apps/study_materials/utils.py
+@@ -0,0 +1,106 @@
++"""Utility functions for extracting text from various file formats"""
++
++import logging
++from typing import Tuple, Optional
++
++logger = logging.getLogger(__name__)
++
++
++def extract_text_from_file(file_path: str, file_type: str) -> Tuple[bool, Optional[str], Optional[str]]:
++    """
++    Extract text from uploaded file
++
++    Args:
++        file_path: Path to the uploaded file
++        file_type: Type of file ('pdf', 'docx', 'doc', 'txt', 'md')
++
++    Returns:
++        Tuple of (success, extracted_text, error_message)
++    """
++    try:
++        if file_type == 'pdf':
++            return _extract_from_pdf(file_path)
++        elif file_type in ['docx', 'doc']:
++            return _extract_from_docx(file_path)
++        elif file_type in ['txt', 'md']:
++            return _extract_from_text(file_path)
++        else:
++            return False, None, f'Unsupported file type: {file_type}'
++    except Exception as e:
++        logger.error(f'Error extracting text from {file_type} file: {e}')
++        return False, None, str(e)
++
++
++def _extract_from_pdf(file_path: str) -> Tuple[bool, Optional[str], Optional[str]]:
++    """Extract text from PDF file"""
++    try:
++        import PyPDF2
++
++        text_content = []
++        with open(file_path, 'rb') as file:
++            pdf_reader = PyPDF2.PdfReader(file)
++            page_count = len(pdf_reader.pages)
++
++            for page_num in range(page_count):
++                page = pdf_reader.pages[page_num]
++                text = page.extract_text()
++                if text:
++                    text_content.append(text)
++
++        extracted_text = '\n\n'.join(text_content)
++
++        if not extracted_text.strip():
++            return False, None, 'PDF appears to be empty or contains only images'
++
++        return True, extracted_text, None
++
++    except ImportError:
++        return False, None, 'PyPDF2 not installed. Please install it: pip install PyPDF2'
++    except Exception as e:
++        logger.error(f'Error reading PDF: {e}')
++        return False, None, f'Error reading PDF: {str(e)}'
++
++
++def _extract_from_docx(file_path: str) -> Tuple[bool, Optional[str], Optional[str]]:
++    """Extract text from DOCX file"""
++    try:
++        from docx import Document
++
++        doc = Document(file_path)
++        paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
++        extracted_text = '\n\n'.join(paragraphs)
++
++        if not extracted_text.strip():
++            return False, None, 'Document appears to be empty'
++
++        return True, extracted_text, None
++
++    except ImportError:
++        return False, None, 'python-docx not installed. Please install it: pip install python-docx'
++    except Exception as e:
++        logger.error(f'Error reading DOCX: {e}')
++        return False, None, f'Error reading DOCX: {str(e)}'
++
++
++def _extract_from_text(file_path: str) -> Tuple[bool, Optional[str], Optional[str]]:
++    """Extract text from TXT or MD file"""
++    try:
++        with open(file_path, 'r', encoding='utf-8') as file:
++            extracted_text = file.read()
++
++        if not extracted_text.strip():
++            return False, None, 'File appears to be empty'
++
++        return True, extracted_text, None
++
++    except UnicodeDecodeError:
++        # Try with different encoding
++        try:
++            with open(file_path, 'r', encoding='latin-1') as file:
++                extracted_text = file.read()
++            return True, extracted_text, None
++        except Exception as e:
++            return False, None, f'Error reading text file: {str(e)}'
++    except Exception as e:
++        logger.error(f'Error reading text file: {e}')
++        return False, None, f'Error reading text file: {str(e)}'
+diff --git a/config/settings.py b/config/settings.py
+index 08e8182..2e3f6dd 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -26,11 +26,12 @@ INSTALLED_APPS = [
+     'rest_framework',
+     'rest_framework_simplejwt',
+     'corsheaders',
+-    
++
+     # Local apps - ADD THESE!
+-    'apps.users',      # ← Add this
+-    'apps.games',      # ← Add this
+-    'apps.ai_engine',  # ← Add this
++    'apps.users',           # ← Add this
++    'apps.games',           # ← Add this
++    'apps.ai_engine',       # ← Add this
++    'apps.study_materials', # ← Add this (NEW)
+ ]
+ AUTH_USER_MODEL = 'users.User'
+ 
+diff --git a/config/urls.py b/config/urls.py
+index 2d7c432..bb25e9b 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -5,4 +5,5 @@ urlpatterns = [
+     path('admin/', admin.site.urls),
+     path('api/auth/', include('apps.users.api.urls')),
+     path('api/games/', include('apps.games.api.urls')),
+-]
+\ No newline at end of file
++    path('api/study-materials/', include('apps.study_materials.api.urls')),
++]
+-- 
+2.43.0
+
