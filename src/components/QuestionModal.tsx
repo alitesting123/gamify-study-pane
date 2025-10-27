@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Check, X, Clock, Trophy, CircleCheck, CircleX, Circle } from "lucide-react";
+import { Check, X, Clock, Trophy, CircleCheck, CircleX, Sparkles, Brain, Target } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -143,11 +143,25 @@ export const QuestionModal = ({
     ? Array.isArray(selectedAnswer) && selectedAnswer.length > 0
     : selectedAnswer !== null;
 
+  // Difficulty badge styling
+  const getDifficultyStyles = (difficulty: string) => {
+    switch(difficulty) {
+      case "Easy":
+        return "bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shadow-emerald-500/10";
+      case "Medium":
+        return "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 shadow-amber-500/10";
+      case "Hard":
+        return "bg-gradient-to-r from-rose-500/20 to-red-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30 shadow-rose-500/10";
+      default:
+        return "";
+    }
+  };
+
   // Render different layouts based on question type
   const renderQuestionOptions = () => {
     if (question.type === "true-false") {
       return (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-6">
           {question.options.map((option) => {
             const isSelected = isOptionSelected(option.id);
             const isCorrectOption = isOptionCorrect(option.id);
@@ -161,34 +175,57 @@ export const QuestionModal = ({
                 onClick={() => handleOptionClick(option.id)}
                 disabled={showResult}
                 className={cn(
-                  "relative group p-8 rounded-xl border-2 transition-all duration-200",
-                  "hover:scale-105 hover:shadow-lg",
+                  "group relative overflow-hidden rounded-2xl border-2 p-10 transition-all duration-300",
+                  "hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98]",
                   "disabled:cursor-not-allowed disabled:hover:scale-100",
-                  isSelected && !showResult && "border-primary bg-primary/10 scale-105",
-                  showCorrect && "border-green-500 bg-green-500/10 scale-105",
-                  showIncorrect && "border-red-500 bg-red-500/10 scale-105",
-                  !isSelected && !showCorrect && !showIncorrect && "border-border hover:border-primary/50"
+                  "backdrop-blur-sm",
+                  isSelected && !showResult && "border-primary bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 scale-[1.02] shadow-xl shadow-primary/20",
+                  showCorrect && "border-emerald-500 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-emerald-500/5 scale-[1.02] shadow-xl shadow-emerald-500/30",
+                  showIncorrect && "border-rose-500 bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-rose-500/5 scale-[1.02] shadow-xl shadow-rose-500/30",
+                  !isSelected && !showCorrect && !showIncorrect && "border-border/50 hover:border-primary/40 bg-gradient-to-br from-background/80 to-muted/30"
                 )}
               >
-                <div className="flex flex-col items-center gap-3">
+                {/* Animated background gradient */}
+                <div className={cn(
+                  "absolute inset-0 opacity-0 transition-opacity duration-500",
+                  "bg-gradient-to-br from-primary/10 via-transparent to-primary/5",
+                  isSelected && !showResult && "opacity-100"
+                )} />
+
+                <div className="relative flex flex-col items-center gap-4">
+                  {/* Icon container with glow effect */}
                   <div className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center transition-colors",
-                    isSelected && !showResult && "bg-primary text-primary-foreground",
-                    showCorrect && "bg-green-500 text-white",
-                    showIncorrect && "bg-red-500 text-white",
-                    !isSelected && !showCorrect && !showIncorrect && "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                    "relative w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300",
+                    "shadow-lg",
+                    isSelected && !showResult && "bg-gradient-to-br from-primary to-primary/80 text-white shadow-primary/50 shadow-2xl",
+                    showCorrect && "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-emerald-500/50 shadow-2xl animate-bounce",
+                    showIncorrect && "bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-rose-500/50 shadow-2xl",
+                    !isSelected && !showCorrect && !showIncorrect && "bg-gradient-to-br from-muted to-muted/80 text-muted-foreground group-hover:from-primary/20 group-hover:to-primary/10 group-hover:text-primary group-hover:shadow-xl"
                   )}>
+                    {/* Pulse effect for correct answer */}
+                    {showCorrect && (
+                      <div className="absolute inset-0 rounded-2xl bg-emerald-500 animate-ping opacity-20" />
+                    )}
+
                     {showCorrect ? (
-                      <Check className="h-8 w-8" />
+                      <Check className="h-10 w-10 relative z-10" strokeWidth={3} />
                     ) : showIncorrect ? (
-                      <X className="h-8 w-8" />
+                      <X className="h-10 w-10 relative z-10" strokeWidth={3} />
                     ) : isTrue ? (
-                      <CircleCheck className="h-8 w-8" />
+                      <CircleCheck className="h-10 w-10 relative z-10" strokeWidth={2.5} />
                     ) : (
-                      <CircleX className="h-8 w-8" />
+                      <CircleX className="h-10 w-10 relative z-10" strokeWidth={2.5} />
                     )}
                   </div>
-                  <p className="text-2xl font-bold">{option.text}</p>
+
+                  <div className="space-y-1 text-center">
+                    <p className="text-3xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+                      {option.text}
+                    </p>
+                    {isSelected && !showResult && (
+                      <p className="text-xs font-medium text-primary">Selected</p>
+                    )}
+                  </div>
                 </div>
               </button>
             );
@@ -199,11 +236,14 @@ export const QuestionModal = ({
 
     // MCQ and Multiple Select
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         {question.type === "multiple-select" && (
-          <p className="text-sm text-muted-foreground italic">
-            Select all correct answers
-          </p>
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <p className="text-sm font-medium text-primary">
+              Select all correct answers
+            </p>
+          </div>
         )}
         {question.options.map((option, index) => {
           const isSelected = isOptionSelected(option.id);
@@ -217,39 +257,50 @@ export const QuestionModal = ({
               onClick={() => handleOptionClick(option.id)}
               disabled={showResult}
               className={cn(
-                "w-full text-left p-4 rounded-lg border-2 transition-all duration-200",
-                "hover:border-primary/50 hover:bg-primary/5 hover:scale-[1.01]",
+                "group relative w-full text-left overflow-hidden rounded-xl border-2 p-5 transition-all duration-300",
+                "hover:border-primary/50 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent hover:scale-[1.01] hover:shadow-lg",
+                "active:scale-[0.99]",
                 "disabled:cursor-not-allowed disabled:hover:scale-100",
-                isSelected && !showResult && "border-primary bg-primary/10 shadow-md",
-                showCorrect && "border-green-500 bg-green-500/10 shadow-md shadow-green-500/20",
-                showIncorrect && "border-red-500 bg-red-500/10 shadow-md shadow-red-500/20",
-                !isSelected && !showCorrect && !showIncorrect && "border-border"
+                isSelected && !showResult && "border-primary bg-gradient-to-r from-primary/15 via-primary/8 to-transparent shadow-lg shadow-primary/10 scale-[1.01]",
+                showCorrect && "border-emerald-500 bg-gradient-to-r from-emerald-500/15 via-emerald-500/8 to-transparent shadow-lg shadow-emerald-500/20",
+                showIncorrect && "border-rose-500 bg-gradient-to-r from-rose-500/15 via-rose-500/8 to-transparent shadow-lg shadow-rose-500/20",
+                !isSelected && !showCorrect && !showIncorrect && "border-border/50 bg-gradient-to-r from-background/50 to-muted/20"
               )}
             >
-              <div className="flex items-center gap-3">
+              {/* Shine effect on hover */}
+              <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+
+              <div className="relative flex items-center gap-4">
+                {/* Letter/Icon badge */}
                 <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center font-bold text-base flex-shrink-0 transition-all",
-                  question.type === "multiple-select" && "rounded-md",
-                  isSelected && !showResult && "bg-primary text-primary-foreground shadow-lg",
-                  showCorrect && "bg-green-500 text-white shadow-lg",
-                  showIncorrect && "bg-red-500 text-white shadow-lg",
-                  !isSelected && !showCorrect && !showIncorrect && "bg-muted text-muted-foreground"
+                  "relative w-12 h-12 rounded-xl flex items-center justify-center font-bold text-base flex-shrink-0 transition-all duration-300 shadow-md",
+                  question.type === "multiple-select" && "rounded-lg",
+                  isSelected && !showResult && "bg-gradient-to-br from-primary to-primary/80 text-white shadow-primary/50 shadow-lg scale-110",
+                  showCorrect && "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-emerald-500/50 shadow-lg scale-110",
+                  showIncorrect && "bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-rose-500/50 shadow-lg scale-110",
+                  !isSelected && !showCorrect && !showIncorrect && "bg-gradient-to-br from-muted to-muted/70 text-muted-foreground group-hover:from-primary/20 group-hover:to-primary/10 group-hover:text-primary"
                 )}>
+                  {showCorrect && (
+                    <div className="absolute inset-0 rounded-xl bg-emerald-500 animate-ping opacity-30" />
+                  )}
                   {showCorrect ? (
-                    <Check className="h-5 w-5" />
+                    <Check className="h-6 w-6 relative z-10" strokeWidth={3} />
                   ) : showIncorrect ? (
-                    <X className="h-5 w-5" />
+                    <X className="h-6 w-6 relative z-10" strokeWidth={3} />
                   ) : question.type === "multiple-select" ? (
                     isSelected ? (
-                      <Check className="h-5 w-5" />
+                      <Check className="h-6 w-6 relative z-10" strokeWidth={2.5} />
                     ) : (
-                      <Circle className="h-5 w-5" />
+                      <div className="h-5 w-5 rounded border-2 border-current relative z-10" />
                     )
                   ) : (
-                    String.fromCharCode(65 + index)
+                    <span className="relative z-10">{String.fromCharCode(65 + index)}</span>
                   )}
                 </div>
-                <p className="flex-1 font-medium text-base leading-relaxed">{option.text}</p>
+
+                <p className="flex-1 font-medium text-base leading-relaxed pr-2">
+                  {option.text}
+                </p>
               </div>
             </button>
           );
@@ -260,80 +311,120 @@ export const QuestionModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-2 bg-gradient-to-br from-background via-background to-muted/20">
         <div className="p-8 space-y-6">
           {/* Header with Progress */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-sm px-3 py-1">
+          <div className="space-y-5">
+            {/* Top meta information */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-gradient-to-r from-primary/20 to-primary/10 text-primary border-primary/30 text-sm px-4 py-1.5 shadow-sm font-semibold">
+                  <Target className="h-3.5 w-3.5 mr-1.5" />
                   Question {currentQuestion} of {totalQuestions}
                 </Badge>
-                <Badge variant="outline" className={cn(
-                  "text-sm px-3 py-1",
-                  question.difficulty === "Easy" && "bg-green-500/10 text-green-500 border-green-500/20",
-                  question.difficulty === "Medium" && "bg-orange-500/10 text-orange-500 border-orange-500/20",
-                  question.difficulty === "Hard" && "bg-red-500/10 text-red-500 border-red-500/20"
+                <Badge className={cn(
+                  "text-sm px-4 py-1.5 shadow-sm font-semibold border",
+                  getDifficultyStyles(question.difficulty)
                 )}>
                   {question.difficulty}
                 </Badge>
-                <Badge variant="outline" className="bg-muted text-sm px-3 py-1">
+                <Badge className="bg-gradient-to-r from-muted to-muted/70 text-foreground border-muted-foreground/20 text-sm px-4 py-1.5 shadow-sm">
                   {question.type === "mcq" && "Multiple Choice"}
                   {question.type === "true-false" && "True / False"}
                   {question.type === "multiple-select" && "Multiple Select"}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20">
-                <Trophy className="h-4 w-4 text-warning" />
-                <span className="text-sm font-bold text-warning">{question.points} pts</span>
+
+              <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+                <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <span className="text-base font-bold text-amber-600 dark:text-amber-400">
+                  {question.points} {question.points === 1 ? 'point' : 'points'}
+                </span>
               </div>
             </div>
 
-            <Progress value={progress} className="h-2.5" />
+            {/* Progress bar with gradient */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                <span>Overall Progress</span>
+                <span>{Math.round(progress)}% Complete</span>
+              </div>
+              <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden shadow-inner">
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary/90 to-primary/80 rounded-full transition-all duration-500 shadow-lg"
+                  style={{ width: `${progress}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent" />
+                </div>
+              </div>
+            </div>
 
             {/* Timer */}
             {!showResult && (
               <Card className={cn(
-                "p-4",
-                timeRemaining <= 5 && "bg-red-500/10 border-red-500/20"
+                "relative overflow-hidden border-2 transition-all duration-300",
+                timeRemaining <= 5 ? "border-rose-500/40 bg-gradient-to-br from-rose-500/15 via-rose-500/10 to-rose-500/5 shadow-lg shadow-rose-500/20" : "border-border/50 bg-gradient-to-br from-background/80 to-muted/30"
               )}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className={cn(
-                      "h-5 w-5",
-                      timeRemaining <= 5 ? "text-red-500" : "text-muted-foreground"
-                    )} />
-                    <span className="text-sm font-medium">Time Remaining</span>
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        timeRemaining <= 5 ? "bg-rose-500/20" : "bg-muted/50"
+                      )}>
+                        <Clock className={cn(
+                          "h-5 w-5",
+                          timeRemaining <= 5 ? "text-rose-500" : "text-muted-foreground"
+                        )} />
+                      </div>
+                      <span className="text-sm font-semibold">Time Remaining</span>
+                    </div>
+                    <span className={cn(
+                      "text-2xl font-bold tabular-nums",
+                      timeRemaining <= 5 && "text-rose-500 animate-pulse"
+                    )}>
+                      {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
+                    </span>
                   </div>
-                  <span className={cn(
-                    "text-xl font-bold tabular-nums",
-                    timeRemaining <= 5 && "text-red-500 animate-pulse"
-                  )}>
-                    {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
-                  </span>
+                  <div className="relative h-2.5 bg-muted/50 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className={cn(
+                        "absolute inset-y-0 left-0 rounded-full transition-all duration-1000",
+                        timeRemaining <= 5
+                          ? "bg-gradient-to-r from-rose-500 to-rose-600"
+                          : "bg-gradient-to-r from-primary to-primary/80"
+                      )}
+                      style={{ width: `${timeProgress}%` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent" />
+                    </div>
+                  </div>
                 </div>
-                <Progress
-                  value={timeProgress}
-                  className={cn(
-                    "h-2 mt-2",
-                    timeRemaining <= 5 && "[&>div]:bg-red-500"
-                  )}
-                />
               </Card>
             )}
           </div>
 
           {/* Question */}
-          <Card className="p-6 bg-gradient-to-br from-muted/50 to-muted/30 border-2">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
-                <Circle className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xl font-semibold leading-relaxed mb-2">{question.questionText}</p>
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Topic:</span> {question.topic}
-                </p>
+          <Card className="relative overflow-hidden border-2 border-border/50 bg-gradient-to-br from-muted/40 via-muted/30 to-background/50 shadow-lg">
+            {/* Decorative gradient overlay */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 via-transparent to-transparent rounded-full blur-3xl" />
+
+            <div className="relative p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 shadow-lg">
+                  <Brain className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 space-y-3">
+                  <p className="text-xl font-semibold leading-relaxed text-foreground">
+                    {question.questionText}
+                  </p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="px-3 py-1 rounded-lg bg-muted/50 border border-border/50">
+                      <span className="font-medium text-muted-foreground">Topic:</span>{" "}
+                      <span className="font-semibold text-foreground">{question.topic}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
@@ -344,39 +435,61 @@ export const QuestionModal = ({
           {/* Result Message */}
           {showResult && (
             <Card className={cn(
-              "p-6 border-2 animate-fade-in-up",
-              isCorrect ? "border-green-500 bg-green-500/10" : "border-red-500 bg-red-500/10"
+              "relative overflow-hidden border-2 animate-in fade-in-0 slide-in-from-bottom-4 duration-500",
+              isCorrect
+                ? "border-emerald-500/50 bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-emerald-500/5 shadow-xl shadow-emerald-500/20"
+                : "border-rose-500/50 bg-gradient-to-br from-rose-500/15 via-rose-500/10 to-rose-500/5 shadow-xl shadow-rose-500/20"
             )}>
-              <div className="flex items-start gap-4">
-                <div className={cn(
-                  "p-3 rounded-full flex-shrink-0",
-                  isCorrect ? "bg-green-500" : "bg-red-500"
-                )}>
-                  {isCorrect ? (
-                    <Check className="h-7 w-7 text-white" />
-                  ) : (
-                    <X className="h-7 w-7 text-white" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className={cn(
-                    "font-bold text-2xl mb-1",
-                    isCorrect ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"
+              {/* Animated background effect */}
+              <div className={cn(
+                "absolute inset-0 opacity-20",
+                isCorrect
+                  ? "bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.3),transparent_70%)]"
+                  : "bg-[radial-gradient(circle_at_50%_50%,rgba(244,63,94,0.3),transparent_70%)]"
+              )} />
+
+              <div className="relative p-6">
+                <div className="flex items-start gap-5">
+                  <div className={cn(
+                    "relative p-4 rounded-2xl flex-shrink-0 shadow-2xl",
+                    isCorrect ? "bg-gradient-to-br from-emerald-500 to-emerald-600" : "bg-gradient-to-br from-rose-500 to-rose-600"
                   )}>
-                    {isCorrect ? "Correct Answer!" : "Incorrect Answer"}
-                  </p>
-                  <p className="text-base text-foreground/80 mb-2">
-                    {isCorrect
-                      ? `Great job! You earned ${question.points} points.`
-                      : "Don't worry, reviewing your mistakes helps you learn better."
-                    }
-                  </p>
-                  {question.explanation && (
-                    <div className="mt-3 p-3 rounded-lg bg-background/50 border border-border">
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Explanation:</p>
-                      <p className="text-sm">{question.explanation}</p>
+                    {isCorrect && (
+                      <div className="absolute inset-0 rounded-2xl bg-emerald-400 animate-ping opacity-30" />
+                    )}
+                    {isCorrect ? (
+                      <Check className="h-8 w-8 text-white relative z-10" strokeWidth={3} />
+                    ) : (
+                      <X className="h-8 w-8 text-white relative z-10" strokeWidth={3} />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <p className={cn(
+                        "font-bold text-2xl mb-1",
+                        isCorrect ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
+                      )}>
+                        {isCorrect ? "Excellent Work!" : "Not Quite Right"}
+                      </p>
+                      <p className="text-base text-foreground/80">
+                        {isCorrect
+                          ? `Outstanding! You've earned ${question.points} ${question.points === 1 ? 'point' : 'points'}.`
+                          : "That's okay! Every mistake is a learning opportunity."
+                        }
+                      </p>
                     </div>
-                  )}
+                    {question.explanation && (
+                      <div className="p-4 rounded-xl bg-background/60 backdrop-blur-sm border border-border/50 shadow-sm">
+                        <div className="flex items-start gap-2 mb-2">
+                          <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                          <p className="text-sm font-semibold text-primary">Explanation</p>
+                        </div>
+                        <p className="text-sm leading-relaxed text-foreground/90 pl-6">
+                          {question.explanation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -387,10 +500,21 @@ export const QuestionModal = ({
             <Button
               onClick={handleSubmit}
               disabled={!hasSelection}
-              className="w-full h-14 text-lg font-semibold"
+              className={cn(
+                "relative w-full h-16 text-lg font-bold overflow-hidden group transition-all duration-300",
+                "shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]",
+                "bg-gradient-to-r from-primary via-primary/90 to-primary/80",
+                "disabled:opacity-50 disabled:hover:scale-100"
+              )}
               size="lg"
             >
-              {question.type === "multiple-select" ? "Submit Answers" : "Submit Answer"}
+              {/* Shine effect */}
+              <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {question.type === "multiple-select" ? "Submit Answers" : "Submit Answer"}
+                <Check className="h-5 w-5" />
+              </span>
             </Button>
           )}
         </div>
