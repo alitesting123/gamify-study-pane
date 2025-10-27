@@ -1,9 +1,12 @@
 // src/components/MyStats.tsx
 import { useGameContext } from "@/contexts/GameContext";
 import { Card } from "@/components/ui/card";
-import { Trophy, Target, TrendingUp, TrendingDown, AlertCircle, BookOpen, Award } from "lucide-react";
+import { Trophy, Target, TrendingUp, TrendingDown, AlertCircle, BookOpen, Award, XCircle, CheckCircle, FileText } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { WeakArea, QuestionAttempt } from "@/types/game";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useState } from "react";
 
 interface SubjectStats {
   subject: string;
@@ -15,12 +18,13 @@ interface SubjectStats {
   questionsCorrect: number;
   trend: 'improving' | 'stable' | 'declining';
   lastPlayed?: string;
+  weakAreas: WeakArea[];
 }
 
 export const MyStats = () => {
   const { userGames, userProgress } = useGameContext();
 
-  // Calculate stats by subject
+  // Calculate stats by subject with weak area analysis
   const statsBySubject = userGames.reduce((acc, game) => {
     const subject = game.subject || "Unknown Subject";
     const accuracy = game.accuracy ?? game.currentProgress ?? 0;
@@ -31,6 +35,7 @@ export const MyStats = () => {
         questionsAttempted: 0,
         questionsCorrect: 0,
         lastPlayed: game.playedAt || game.createdAt,
+        allQuestionAttempts: [],
       };
     }
 
@@ -41,14 +46,25 @@ export const MyStats = () => {
     acc[subject].questionsAttempted += game.questionsCount || 0;
     acc[subject].questionsCorrect += game.questionsCorrect || Math.round((accuracy / 100) * (game.questionsCount || 0));
 
+    // Collect all question attempts for weak area analysis
+    if (game.questionAttempts) {
+      acc[subject].allQuestionAttempts.push(...game.questionAttempts);
+    }
+
     if (game.playedAt && (!acc[subject].lastPlayed || game.playedAt > acc[subject].lastPlayed)) {
       acc[subject].lastPlayed = game.playedAt;
     }
 
     return acc;
-  }, {} as Record<string, { attempts: { accuracy: number; date: string }[]; questionsAttempted: number; questionsCorrect: number; lastPlayed?: string }>);
+  }, {} as Record<string, {
+    attempts: { accuracy: number; date: string }[];
+    questionsAttempted: number;
+    questionsCorrect: number;
+    lastPlayed?: string;
+    allQuestionAttempts: QuestionAttempt[];
+  }>);
 
-  // Calculate subject statistics
+  // Calculate subject statistics with weak areas
   const subjectStats: SubjectStats[] = Object.entries(statsBySubject).map(([subject, data]) => {
     const sortedAttempts = data.attempts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const accuracies = sortedAttempts.map(a => a.accuracy);
@@ -68,6 +84,36 @@ export const MyStats = () => {
       else if (recentAvg < earlierAvg - 5) trend = 'declining';
     }
 
+    // Analyze weak areas by grouping questions by topic
+    const weakAreasByTopic = data.allQuestionAttempts.reduce((acc, attempt) => {
+      if (!acc[attempt.topic]) {
+        acc[attempt.topic] = {
+          topic: attempt.topic,
+          totalQuestions: 0,
+          correctAnswers: 0,
+          accuracy: 0,
+          mistakes: [],
+        };
+      }
+
+      acc[attempt.topic].totalQuestions += 1;
+      if (attempt.isCorrect) {
+        acc[attempt.topic].correctAnswers += 1;
+      } else {
+        acc[attempt.topic].mistakes.push(attempt);
+      }
+
+      return acc;
+    }, {} as Record<string, WeakArea>);
+
+    // Calculate accuracy for each weak area and sort by accuracy (worst first)
+    const weakAreas = Object.values(weakAreasByTopic)
+      .map(area => ({
+        ...area,
+        accuracy: Math.round((area.correctAnswers / area.totalQuestions) * 100),
+      }))
+      .sort((a, b) => a.accuracy - b.accuracy);
+
     return {
       subject,
       attempts: accuracies.length,
@@ -78,6 +124,7 @@ export const MyStats = () => {
       questionsCorrect: data.questionsCorrect,
       trend,
       lastPlayed: data.lastPlayed,
+      weakAreas,
     };
   });
 
@@ -188,15 +235,15 @@ export const MyStats = () => {
         </div>
       )}
 
-      {/* Performance by Subject */}
+      {/* Performance by Subject with Weak Areas */}
       <div className="space-y-4">
         <h2 className="text-2xl font-semibold">Performance by Subject</h2>
 
         {subjectStats.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {subjectStats.map((stat) => (
               <Card key={stat.subject} className="p-6 hover-lift">
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
@@ -244,6 +291,21 @@ export const MyStats = () => {
                     </div>
                     <Progress value={stat.averageAccuracy} className="h-2" />
                   </div>
+
+                  {/* Weak Areas Section */}
+                  {stat.weakAreas.length > 0 && (
+                    <div className="pt-4 border-t border-border">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
+                        <h4 className="font-semibold text-sm">Areas to Improve</h4>
+                      </div>
+                      <div className="space-y-3">
+                        {stat.weakAreas.map((weakArea) => (
+                          <WeakAreaCard key={weakArea.topic} weakArea={weakArea} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             ))}
@@ -261,5 +323,94 @@ export const MyStats = () => {
         )}
       </div>
     </div>
+  );
+};
+
+// Component to display weak areas with mistakes
+const WeakAreaCard = ({ weakArea }: { weakArea: WeakArea }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="border border-border rounded-lg p-3 bg-muted/30">
+        <CollapsibleTrigger className="w-full">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-1.5 rounded ${weakArea.accuracy < 50 ? 'bg-red-500/10' : 'bg-orange-500/10'}`}>
+                {weakArea.accuracy < 50 ? (
+                  <XCircle className="h-4 w-4 text-red-500" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                )}
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-sm">{weakArea.topic}</p>
+                <p className="text-xs text-muted-foreground">
+                  {weakArea.correctAnswers}/{weakArea.totalQuestions} correct ({weakArea.accuracy}%)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={weakArea.accuracy < 50 ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500'}>
+                {weakArea.mistakes.length} {weakArea.mistakes.length === 1 ? 'mistake' : 'mistakes'}
+              </Badge>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent className="mt-3">
+          <div className="space-y-3 pl-10">
+            {weakArea.mistakes.map((mistake, idx) => (
+              <div key={idx} className="bg-background rounded-lg p-3 space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium">{mistake.questionText}</p>
+                  </div>
+                </div>
+
+                <div className="pl-6 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500 font-medium text-xs">Your answer:</span>
+                    <span className="text-red-500 text-xs">{mistake.userAnswer}</span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-3.5 w-3.5 text-green-500 mt-0.5" />
+                    <div>
+                      <span className="text-green-500 font-medium text-xs">Correct answer: </span>
+                      <span className="text-green-500 text-xs">{mistake.correctAnswer}</span>
+                    </div>
+                  </div>
+
+                  {mistake.documentReference && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-start gap-2">
+                        <FileText className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 space-y-1">
+                          <p className="text-xs font-medium text-primary">
+                            Referenced in: {mistake.documentReference.section}
+                          </p>
+                          <div className="bg-primary/5 rounded p-2 border-l-2 border-primary">
+                            <p className="text-xs text-muted-foreground italic">
+                              "{mistake.documentReference.text}"
+                            </p>
+                          </div>
+                          {mistake.documentReference.context && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {mistake.documentReference.context}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 };

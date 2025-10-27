@@ -81,7 +81,7 @@ export function DashboardSidebar({ currentView, onViewChange }: DashboardSidebar
                             {game.questionsCount}Q
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {game.currentProgress}%
+                            {game.accuracy ?? game.currentProgress}%
                           </span>
                         </div>
                       </div>
