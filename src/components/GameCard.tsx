@@ -2,11 +2,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Gamepad2, Clock, Trophy } from "lucide-react";
 import { useState } from "react";
+import { GameCategoryBadge } from "./GameCategoryBadge";
+import { GameCategoryType } from "@/types/game";
 
 interface GameCardProps {
   title: string;
   description: string;
   category: string;
+  categoryType?: GameCategoryType;
   difficulty: "Easy" | "Medium" | "Hard";
   estimatedTime: string;
   completionRate?: number;
@@ -18,6 +21,7 @@ export const GameCard = ({
   title,
   description,
   category,
+  categoryType,
   difficulty,
   estimatedTime,
   completionRate,
@@ -82,8 +86,8 @@ export const GameCard = ({
       </div>
 
       <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-lg">{title}</h3>
+        <div className="flex items-start justify-between mb-2 gap-2">
+          <h3 className="font-semibold text-lg flex-1">{title}</h3>
           <Badge className={difficultyColors[difficulty]} variant="outline">
             {difficulty}
           </Badge>
@@ -93,8 +97,8 @@ export const GameCard = ({
           {description}
         </p>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>{estimatedTime}</span>
           </div>
@@ -102,6 +106,12 @@ export const GameCard = ({
             {category}
           </Badge>
         </div>
+
+        {categoryType && (
+          <div className="mt-2">
+            <GameCategoryBadge categoryType={categoryType} size="sm" />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

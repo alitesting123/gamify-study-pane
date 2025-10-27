@@ -1,9 +1,13 @@
 // src/types/game.ts
+
+export type GameCategoryType = 'action' | 'memory' | 'quick-think' | 'puzzle' | 'learning';
+
 export interface GameTemplate {
   id: number;
   title: string;
   description: string;
   category: string;
+  categoryType?: GameCategoryType; // Visual category for UI
   difficulty: "Easy" | "Medium" | "Hard";
   estimatedTime: string;
   completionRate?: number;
@@ -16,6 +20,7 @@ export interface UserGame {
   title: string;
   description: string;
   category: string;
+  categoryType?: GameCategoryType; // Visual category for UI
   difficulty: "Easy" | "Medium" | "Hard";
   questionsCount: number;
   maxPoints: number;

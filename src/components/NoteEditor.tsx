@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
+import { NotesEditor } from './NotesEditor';
 
 export const NoteEditor = () => {
   const { notes, selectedNoteId, updateNote, deleteNote, selectNote } = useNotesContext();
@@ -182,11 +183,10 @@ export const NoteEditor = () => {
       <div className="flex-1 overflow-y-auto">
         {editMode ? (
           <div className="p-6">
-            <Textarea
-              value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
-              className="min-h-[calc(100vh-300px)] font-mono text-sm resize-none border-none focus-visible:ring-0 p-0"
-              placeholder="Start writing your note... (Markdown supported)"
+            <NotesEditor
+              content={content}
+              onChange={handleContentChange}
+              noteId={selectedNote.id}
             />
           </div>
         ) : (
