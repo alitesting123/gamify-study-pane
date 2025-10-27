@@ -1,10 +1,16 @@
 // src/lib/pixiGames/planeGame.ts
 import { Application, Graphics, Container, Text, TextStyle } from 'pixi.js';
 
+export interface GameQuestion {
+  question: string;
+  answer: string;
+}
+
 interface GameCallbacks {
   onQuestionComplete: (isCorrect: boolean) => void;
   onGameComplete: (finalScore: number) => void;
   onScoreUpdate?: (score: number, distance: number) => void;
+  onShowQuestion?: (question: GameQuestion, callback: (isCorrect: boolean) => void) => void;
 }
 
 interface Particle extends Graphics {
@@ -141,65 +147,8 @@ export async function initializePlaneGame(
   instructionsText.y = app.screen.height - 30;
   app.stage.addChild(instructionsText);
 
-  // Quiz overlay
-  const quizOverlay = new Graphics();
-  quizOverlay.beginFill(0x000000, 0.85);
-  quizOverlay.drawRect(0, 0, app.screen.width, app.screen.height);
-  quizOverlay.endFill();
-  quizOverlay.visible = false;
-  app.stage.addChild(quizOverlay);
-
-  const quizBox = new Graphics();
-  quizBox.beginFill(0xffffff);
-  quizBox.lineStyle(5, 0xff4444);
-  quizBox.drawRoundedRect(-300, -180, 600, 360, 20);
-  quizBox.endFill();
-  quizBox.x = app.screen.width / 2;
-  quizBox.y = app.screen.height / 2;
-  quizBox.visible = false;
-  app.stage.addChild(quizBox);
-
-  const quizQuestionText = new Text({
-    text: '',
-    style: { fontFamily: 'Arial', fontSize: 26, fill: 0x000000, align: 'center', wordWrap: true, wordWrapWidth: 550 }
-  });
-  quizQuestionText.anchor.set(0.5);
-  quizQuestionText.x = app.screen.width / 2;
-  quizQuestionText.y = app.screen.height / 2 - 80;
-  quizQuestionText.visible = false;
-  app.stage.addChild(quizQuestionText);
-
-  const quizInstructionText = new Text({
-    text: 'Type your answer and press ENTER',
-    style: { fontFamily: 'Arial', fontSize: 18, fill: 0x666666 }
-  });
-  quizInstructionText.anchor.set(0.5);
-  quizInstructionText.x = app.screen.width / 2;
-  quizInstructionText.y = app.screen.height / 2;
-  quizInstructionText.visible = false;
-  app.stage.addChild(quizInstructionText);
-
-  const quizAnswerText = new Text({
-    text: '',
-    style: { fontFamily: 'Arial', fontSize: 32, fill: 0xff4444, fontWeight: 'bold' }
-  });
-  quizAnswerText.anchor.set(0.5);
-  quizAnswerText.x = app.screen.width / 2;
-  quizAnswerText.y = app.screen.height / 2 + 60;
-  quizAnswerText.visible = false;
-  app.stage.addChild(quizAnswerText);
-
-  const quizFeedbackText = new Text({
-    text: '',
-    style: { fontFamily: 'Arial', fontSize: 24, fill: 0x00aa00 }
-  });
-  quizFeedbackText.anchor.set(0.5);
-  quizFeedbackText.x = app.screen.width / 2;
-  quizFeedbackText.y = app.screen.height / 2 + 120;
-  quizFeedbackText.visible = false;
-  app.stage.addChild(quizFeedbackText);
-
-  let userAnswer = '';
+  // Quiz state (no PixiJS modal elements needed - using React modal)
+  let questionCallback: ((isCorrect: boolean) => void) | null = null;
   let clouds: any[] = [];
   let birds: any[] = [];
   let debris: any[] = [];
@@ -413,64 +362,32 @@ export async function initializePlaneGame(
   });
 
   function showQuiz() {
+    if (!callbacks.onShowQuestion) {
+      console.warn('onShowQuestion callback not provided');
+      return;
+    }
+
     gameState.paused = true;
     gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
-    userAnswer = '';
-    quizOverlay.visible = true;
-    quizBox.visible = true;
-    quizQuestionText.text = "⚠️ BIRD STRIKE! ⚠️\n\n" + gameState.currentQuestion.question;
-    quizQuestionText.visible = true;
-    quizInstructionText.visible = true;
-    quizAnswerText.text = '';
-    quizAnswerText.visible = true;
-    quizFeedbackText.visible = false;
-  }
 
-  function hideQuiz() {
-    gameState.paused = false;
-    quizOverlay.visible = false;
-    quizBox.visible = false;
-    quizQuestionText.visible = false;
-    quizInstructionText.visible = false;
-    quizAnswerText.visible = false;
-    quizFeedbackText.visible = false;
-    gameState.invincible = true;
-    gameState.invincibleTimer = 120;
-  }
+    // Show React modal via callback
+    callbacks.onShowQuestion(gameState.currentQuestion, (isCorrect: boolean) => {
+      // This callback is called when the user answers in the React modal
+      callbacks.onQuestionComplete?.(isCorrect);
 
-  function checkAnswer() {
-    const correct = userAnswer.toLowerCase().trim() === gameState.currentQuestion.answer.toLowerCase();
-    if (correct) {
-      quizFeedbackText.text = '✓ Correct!';
-      quizFeedbackText.style.fill = 0x00aa00;
-      quizFeedbackText.visible = true;
-      callbacks.onQuestionComplete?.(true);
-      setTimeout(() => hideQuiz(), 1500);
-    } else {
-      quizFeedbackText.text = '✗ Wrong! Try again!';
-      quizFeedbackText.style.fill = 0xff0000;
-      quizFeedbackText.visible = true;
-      userAnswer = '';
-      quizAnswerText.text = '';
-      callbacks.onQuestionComplete?.(false);
-      setTimeout(() => { quizFeedbackText.visible = false; }, 1000);
-    }
-  }
-
-  keyboardHandler = (e: KeyboardEvent) => {
-    if (gameState.paused && !gameState.gameOver) {
-      if (e.key === 'Enter') {
-        checkAnswer();
-      } else if (e.key === 'Backspace') {
-        userAnswer = userAnswer.slice(0, -1);
-        quizAnswerText.text = userAnswer;
-      } else if (e.key.length === 1) {
-        userAnswer += e.key;
-        quizAnswerText.text = userAnswer;
+      if (isCorrect) {
+        // Correct answer - resume game with invincibility
+        gameState.paused = false;
+        gameState.invincible = true;
+        gameState.invincibleTimer = 120;
+      } else {
+        // Wrong answer - allow retry, but still give brief invincibility
+        gameState.paused = false;
+        gameState.invincible = true;
+        gameState.invincibleTimer = 60;
       }
-    }
-  };
-  window.addEventListener('keydown', keyboardHandler);
+    });
+  }
 
   // Game loop
   app.ticker.add((ticker) => {

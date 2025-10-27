@@ -5,9 +5,10 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useGameContext } from "@/contexts/GameContext";
-import { initializeGame, cleanupGame } from "@/lib/pixiGame";
+import { initializeGame, cleanupGame, type GameQuestion } from "@/lib/pixiGame";
 import { gameService, type GameConfig } from "@/services/gameService";
 import type { GameType } from "@/lib/pixiGame";
+import { GameQuestionModal } from "@/components/GameQuestionModal";
 
 interface GamePlayViewProps {
   onBack: () => void;
@@ -21,16 +22,48 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [score, setScore] = useState(0);
   const [secondaryStat, setSecondaryStat] = useState(0);
-  
+
   // ✅ NEW: State for game configuration
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
-  
+
+  // Question modal state
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [currentGameQuestion, setCurrentGameQuestion] = useState<GameQuestion | null>(null);
+  const questionCallbackRef = useRef<((isCorrect: boolean) => void) | null>(null);
+
   const { userGames, selectedGameId, updateProgress } = useGameContext();
 
   const game = userGames.find((g) => g.id === selectedGameId);
   const totalQuestions = game?.questionsCount || 10;
   const gameType: GameType = (game?.gameType as GameType) || 'quiz';
+
+  // Handle question modal answer
+  const handleQuestionAnswer = (isCorrect: boolean, userAnswer: string) => {
+    // Call the game's callback
+    if (questionCallbackRef.current) {
+      questionCallbackRef.current(isCorrect);
+    }
+
+    // Update React state
+    if (isCorrect) {
+      setScore((prev) => prev + 10);
+      setCurrentQuestion((prev) => prev + 1);
+      setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
+    }
+
+    // Close modal
+    setShowQuestionModal(false);
+    setCurrentGameQuestion(null);
+    questionCallbackRef.current = null;
+  };
+
+  // Expose function to show question from game
+  const showQuestion = (question: GameQuestion, callback: (isCorrect: boolean) => void) => {
+    setCurrentGameQuestion(question);
+    setShowQuestionModal(true);
+    questionCallbackRef.current = callback;
+  };
 
   // ✅ NEW: Fetch game configuration from backend
   useEffect(() => {
@@ -72,11 +105,8 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
       canvasRef.current,
       {
         onQuestionComplete: (isCorrect: boolean) => {
-          if (isCorrect) {
-            setScore((prev) => prev + 10);
-            setCurrentQuestion((prev) => prev + 1);
-            setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
-          }
+          // This callback is now handled by the modal
+          // Keep for backward compatibility
         },
         onGameComplete: (finalScore: number) => {
           updateProgress(finalScore);
@@ -87,6 +117,7 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
             setSecondaryStat(secondary);
           }
         },
+        onShowQuestion: showQuestion, // ← Pass the show question function
       },
       gameConfig ?? undefined,  // ← Pass backend config (or undefined)
       gameType                   // ← Fallback to legacy gameType
@@ -195,12 +226,21 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
 
       {/* Game Canvas */}
       <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-sky-400 to-sky-200">
-        <div 
-          ref={canvasRef} 
+        <div
+          ref={canvasRef}
           className="w-full h-full"
           style={{ touchAction: 'none' }}
         />
       </div>
+
+      {/* Question Modal */}
+      <GameQuestionModal
+        open={showQuestionModal}
+        question={currentGameQuestion}
+        onAnswer={handleQuestionAnswer}
+        title="⚠️ Challenge Question!"
+        allowRetry={true}
+      />
     </div>
   );
 };
