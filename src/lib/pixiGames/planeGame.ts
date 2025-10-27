@@ -439,9 +439,11 @@ export async function initializePlaneGame(
   });
 
   function showQuiz() {
+    console.log('🎮 showQuiz called in plane game');
+
     // Safety check: ensure callback exists
     if (!callbacks.onShowQuestion) {
-      console.warn('onShowQuestion callback not provided - resuming game');
+      console.warn('⚠️ onShowQuestion callback not provided - resuming game');
       gameState.paused = false;
       gameState.invincible = true;
       gameState.invincibleTimer = 120;
@@ -450,7 +452,7 @@ export async function initializePlaneGame(
 
     // Safety check: ensure questions array is not empty
     if (!questions || questions.length === 0) {
-      console.warn('No questions available - resuming game');
+      console.warn('⚠️ No questions available - resuming game');
       gameState.paused = false;
       gameState.invincible = true;
       gameState.invincibleTimer = 120;
@@ -461,8 +463,12 @@ export async function initializePlaneGame(
       gameState.paused = true;
       gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
 
+      console.log('📋 Selected question:', gameState.currentQuestion.question);
+      console.log('🔄 Calling onShowQuestion callback...');
+
       // Show React modal via callback
       callbacks.onShowQuestion(gameState.currentQuestion, (isCorrect: boolean) => {
+        console.log('🎯 Answer callback received in plane game:', isCorrect);
         try {
           // This callback is called when the user answers in the React modal
           callbacks.onQuestionComplete?.(isCorrect);
@@ -474,9 +480,11 @@ export async function initializePlaneGame(
           if (isCorrect) {
             // Correct answer - longer invincibility
             gameState.invincibleTimer = 120;
+            console.log('✅ Correct answer! Resuming with 120 invincibility frames');
           } else {
             // Wrong answer - shorter invincibility
             gameState.invincibleTimer = 60;
+            console.log('❌ Wrong answer! Resuming with 60 invincibility frames');
           }
         } catch (error) {
           console.error('Error in quiz answer callback:', error);
@@ -486,8 +494,10 @@ export async function initializePlaneGame(
           gameState.invincibleTimer = 60;
         }
       });
+
+      console.log('✅ onShowQuestion callback called successfully');
     } catch (error) {
-      console.error('Error showing quiz:', error);
+      console.error('❌ Error showing quiz:', error);
       // Ensure game resumes if quiz fails to show
       gameState.paused = false;
       gameState.invincible = true;
@@ -575,14 +585,17 @@ export async function initializePlaneGame(
     birds = birds.filter(b => {
       if (!b.update(delta)) { b.remove(); return false; }
       if (!gameState.invincible && b.checkCollision(plane.x, plane.y)) {
+        console.log('🐦 Bird collision detected!');
         b.hit();
         gameState.birdsHit++;
         gameState.planeHealth--;
         healthText.text = `❤️ ${gameState.planeHealth}`;
         if (gameState.planeHealth <= 0) {
+          console.log('💀 Game Over!');
           gameState.gameOver = true;
           callbacks.onGameComplete?.(gameState.debrisDestroyed * 10);
         } else {
+          console.log('❤️ Health remaining:', gameState.planeHealth, '- Showing quiz...');
           showQuiz();
         }
       }

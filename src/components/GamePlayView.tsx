@@ -1,5 +1,5 @@
 // src/components/GamePlayView.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -39,10 +39,12 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
   const gameType: GameType = (game?.gameType as GameType) || 'quiz';
 
   // Handle question modal answer
-  const handleQuestionAnswer = (isCorrect: boolean, userAnswer: string) => {
+  const handleQuestionAnswer = useCallback((isCorrect: boolean, userAnswer: string) => {
+    console.log('📝 Answer received:', isCorrect, userAnswer);
     try {
       // Call the game's callback
       if (questionCallbackRef.current) {
+        console.log('✅ Calling game callback with:', isCorrect);
         questionCallbackRef.current(isCorrect);
       }
 
@@ -60,10 +62,11 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
       setCurrentGameQuestion(null);
       questionCallbackRef.current = null;
     }
-  };
+  }, [currentQuestion, totalQuestions]);
 
   // Expose function to show question from game
-  const showQuestion = (question: GameQuestion, callback: (isCorrect: boolean) => void) => {
+  const showQuestion = useCallback((question: GameQuestion, callback: (isCorrect: boolean) => void) => {
+    console.log('🎯 showQuestion called with:', question);
     try {
       if (!question || !question.question || !question.options) {
         console.error('Invalid question data:', question);
@@ -72,6 +75,7 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
         return;
       }
 
+      console.log('✅ Setting modal state to show question');
       setCurrentGameQuestion(question);
       setShowQuestionModal(true);
       questionCallbackRef.current = callback;
@@ -80,7 +84,7 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
       // Call callback with false to resume game
       callback(false);
     }
-  };
+  }, []);
 
   // ✅ NEW: Fetch game configuration from backend
   useEffect(() => {
@@ -144,7 +148,7 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
     return () => {
       cleanupGame();
     };
-  }, [game, gameType, gameConfig, configLoading]);
+  }, [game, gameType, gameConfig, configLoading, showQuestion, updateProgress]);
 
   const handlePausePlay = () => {
     setIsPlaying(!isPlaying);

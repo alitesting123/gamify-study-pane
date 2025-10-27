@@ -29,6 +29,7 @@ export const GameQuestionModal = ({
   // Reset state when question changes
   useEffect(() => {
     if (question && open) {
+      console.log('🎨 GameQuestionModal: Opening with question:', question.question);
       setSelectedOption(null);
       setShowFeedback(false);
       setIsCorrect(false);
