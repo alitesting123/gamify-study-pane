@@ -200,8 +200,8 @@ export async function initializePlaneGame(
   app.stage.addChild(scoreText);
 
   const debrisText = new Text({
-    text: `Debris: 0`,
-    style: { fontFamily: 'Arial', fontSize: 20, fill: 0xff8800, fontWeight: 'bold' }
+    text: `Score: 0`,
+    style: { fontFamily: 'Arial', fontSize: 24, fill: 0x00aa00, fontWeight: 'bold' }
   });
   debrisText.x = 20;
   debrisText.y = 50;
@@ -216,7 +216,7 @@ export async function initializePlaneGame(
   app.stage.addChild(healthText);
 
   const instructionsText = new Text({
-    text: 'MOUSE: Move | CLICK: Shoot | Destroy debris for points!',
+    text: 'SHOOT debris to answer questions & earn points!',
     style: { fontFamily: 'Arial', fontSize: 18, fill: 0x2d3436, fontWeight: 'bold' }
   });
   instructionsText.anchor.set(0.5);
@@ -478,13 +478,18 @@ export async function initializePlaneGame(
           gameState.invincible = true;
 
           if (isCorrect) {
-            // Correct answer - longer invincibility
+            // Correct answer - increase score and give longer invincibility
+            gameState.score++;
+            debrisText.text = `Score: ${gameState.score}`;
             gameState.invincibleTimer = 120;
-            console.log('✅ Correct answer! Resuming with 120 invincibility frames');
+            console.log('✅ Correct! Score:', gameState.score);
+
+            // Update score in parent
+            callbacks.onScoreUpdate?.(gameState.score, gameState.distance);
           } else {
-            // Wrong answer - shorter invincibility
+            // Wrong answer - shorter invincibility, no score
             gameState.invincibleTimer = 60;
-            console.log('❌ Wrong answer! Resuming with 60 invincibility frames');
+            console.log('❌ Wrong answer! No points awarded');
           }
         } catch (error) {
           console.error('Error in quiz answer callback:', error);
@@ -548,17 +553,20 @@ export async function initializePlaneGame(
       birdSpawnTimer = 0;
     }
 
-    // Update
+    // Update bullets - when bullet hits debris, show question
     bullets = bullets.filter(b => {
       if (!b.update(delta)) { b.remove(); return false; }
       for (let i = debris.length - 1; i >= 0; i--) {
         if (b.checkCollision(debris[i])) {
+          console.log('💥 Debris destroyed by bullet! Showing question...');
           debris[i].destroy();
           debris[i].remove();
           debris.splice(i, 1);
           b.remove();
           gameState.debrisDestroyed++;
-          debrisText.text = `Debris: ${gameState.debrisDestroyed}`;
+
+          // Show question when debris is shot (score increases on correct answer)
+          showQuiz();
           return false;
         }
       }
@@ -569,12 +577,25 @@ export async function initializePlaneGame(
     debris = debris.filter(d => {
       if (!d.update(delta)) { d.remove(); return false; }
       if (!gameState.invincible && d.checkCollision(plane.x, plane.y)) {
+        console.log('💥 Hit debris - Health and score lost!');
         d.destroy();
         gameState.planeHealth--;
         healthText.text = `❤️ ${gameState.planeHealth}`;
+
+        // Lose 1 point when hit (but don't go below 0)
+        if (gameState.score > 0) {
+          gameState.score--;
+          debrisText.text = `Score: ${gameState.score}`;
+          callbacks.onScoreUpdate?.(gameState.score, gameState.distance);
+        }
+
+        // Give brief invincibility
+        gameState.invincible = true;
+        gameState.invincibleTimer = 60;
+
         if (gameState.planeHealth <= 0) {
           gameState.gameOver = true;
-          callbacks.onGameComplete?.(gameState.debrisDestroyed * 10);
+          callbacks.onGameComplete?.(gameState.score);
         }
         d.remove();
         return false;
@@ -585,18 +606,20 @@ export async function initializePlaneGame(
     birds = birds.filter(b => {
       if (!b.update(delta)) { b.remove(); return false; }
       if (!gameState.invincible && b.checkCollision(plane.x, plane.y)) {
-        console.log('🐦 Bird collision detected!');
+        console.log('🐦 Bird collision - Health lost!');
         b.hit();
         gameState.birdsHit++;
         gameState.planeHealth--;
         healthText.text = `❤️ ${gameState.planeHealth}`;
+
+        // Give brief invincibility after collision
+        gameState.invincible = true;
+        gameState.invincibleTimer = 60;
+
         if (gameState.planeHealth <= 0) {
           console.log('💀 Game Over!');
           gameState.gameOver = true;
-          callbacks.onGameComplete?.(gameState.debrisDestroyed * 10);
-        } else {
-          console.log('❤️ Health remaining:', gameState.planeHealth, '- Showing quiz...');
-          showQuiz();
+          callbacks.onGameComplete?.(gameState.score);
         }
       }
       return true;
@@ -621,6 +644,6 @@ export async function initializePlaneGame(
     gameState.distance += Math.floor(gameState.speed * delta);
     gameState.speed += 0.001 * delta;
     scoreText.text = `Distance: ${gameState.distance}m`;
-    callbacks.onScoreUpdate?.(gameState.debrisDestroyed * 10, gameState.distance);
+    callbacks.onScoreUpdate?.(gameState.score, gameState.distance);
   });
 }
