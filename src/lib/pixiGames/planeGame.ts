@@ -439,31 +439,60 @@ export async function initializePlaneGame(
   });
 
   function showQuiz() {
+    // Safety check: ensure callback exists
     if (!callbacks.onShowQuestion) {
-      console.warn('onShowQuestion callback not provided');
+      console.warn('onShowQuestion callback not provided - resuming game');
+      gameState.paused = false;
+      gameState.invincible = true;
+      gameState.invincibleTimer = 120;
       return;
     }
 
-    gameState.paused = true;
-    gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+    // Safety check: ensure questions array is not empty
+    if (!questions || questions.length === 0) {
+      console.warn('No questions available - resuming game');
+      gameState.paused = false;
+      gameState.invincible = true;
+      gameState.invincibleTimer = 120;
+      return;
+    }
 
-    // Show React modal via callback
-    callbacks.onShowQuestion(gameState.currentQuestion, (isCorrect: boolean) => {
-      // This callback is called when the user answers in the React modal
-      callbacks.onQuestionComplete?.(isCorrect);
+    try {
+      gameState.paused = true;
+      gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
 
-      if (isCorrect) {
-        // Correct answer - resume game with invincibility
-        gameState.paused = false;
-        gameState.invincible = true;
-        gameState.invincibleTimer = 120;
-      } else {
-        // Wrong answer - allow retry, but still give brief invincibility
-        gameState.paused = false;
-        gameState.invincible = true;
-        gameState.invincibleTimer = 60;
-      }
-    });
+      // Show React modal via callback
+      callbacks.onShowQuestion(gameState.currentQuestion, (isCorrect: boolean) => {
+        try {
+          // This callback is called when the user answers in the React modal
+          callbacks.onQuestionComplete?.(isCorrect);
+
+          // Always resume the game regardless of answer
+          gameState.paused = false;
+          gameState.invincible = true;
+
+          if (isCorrect) {
+            // Correct answer - longer invincibility
+            gameState.invincibleTimer = 120;
+          } else {
+            // Wrong answer - shorter invincibility
+            gameState.invincibleTimer = 60;
+          }
+        } catch (error) {
+          console.error('Error in quiz answer callback:', error);
+          // Ensure game resumes even if there's an error
+          gameState.paused = false;
+          gameState.invincible = true;
+          gameState.invincibleTimer = 60;
+        }
+      });
+    } catch (error) {
+      console.error('Error showing quiz:', error);
+      // Ensure game resumes if quiz fails to show
+      gameState.paused = false;
+      gameState.invincible = true;
+      gameState.invincibleTimer = 120;
+    }
   }
 
   // Game loop

@@ -40,29 +40,46 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
 
   // Handle question modal answer
   const handleQuestionAnswer = (isCorrect: boolean, userAnswer: string) => {
-    // Call the game's callback
-    if (questionCallbackRef.current) {
-      questionCallbackRef.current(isCorrect);
-    }
+    try {
+      // Call the game's callback
+      if (questionCallbackRef.current) {
+        questionCallbackRef.current(isCorrect);
+      }
 
-    // Update React state
-    if (isCorrect) {
-      setScore((prev) => prev + 10);
-      setCurrentQuestion((prev) => prev + 1);
-      setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
+      // Update React state
+      if (isCorrect) {
+        setScore((prev) => prev + 10);
+        setCurrentQuestion((prev) => prev + 1);
+        setGameProgress(((currentQuestion + 1) / totalQuestions) * 100);
+      }
+    } catch (error) {
+      console.error('Error handling question answer:', error);
+    } finally {
+      // Always close modal and clean up
+      setShowQuestionModal(false);
+      setCurrentGameQuestion(null);
+      questionCallbackRef.current = null;
     }
-
-    // Close modal
-    setShowQuestionModal(false);
-    setCurrentGameQuestion(null);
-    questionCallbackRef.current = null;
   };
 
   // Expose function to show question from game
   const showQuestion = (question: GameQuestion, callback: (isCorrect: boolean) => void) => {
-    setCurrentGameQuestion(question);
-    setShowQuestionModal(true);
-    questionCallbackRef.current = callback;
+    try {
+      if (!question || !question.question || !question.options) {
+        console.error('Invalid question data:', question);
+        // Call callback with false to resume game
+        callback(false);
+        return;
+      }
+
+      setCurrentGameQuestion(question);
+      setShowQuestionModal(true);
+      questionCallbackRef.current = callback;
+    } catch (error) {
+      console.error('Error showing question:', error);
+      // Call callback with false to resume game
+      callback(false);
+    }
   };
 
   // ✅ NEW: Fetch game configuration from backend
@@ -238,7 +255,7 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
         open={showQuestionModal}
         question={currentGameQuestion}
         onAnswer={handleQuestionAnswer}
-        title="⚠️ Challenge Question!"
+        title="Challenge Question"
         allowRetry={true}
       />
     </div>
