@@ -6,7 +6,6 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useGameContext } from "@/contexts/GameContext";
 import { initializeGame, cleanupGame, type GameQuestion } from "@/lib/pixiGame";
-import { gameService, type GameConfig } from "@/services/gameService";
 import type { GameType } from "@/lib/pixiGame";
 import { GameQuestionModal } from "@/components/GameQuestionModal";
 
@@ -23,10 +22,6 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
   const [score, setScore] = useState(0);
   const [secondaryStat, setSecondaryStat] = useState(0);
 
-  // ✅ NEW: State for game configuration
-  const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
-  const [configLoading, setConfigLoading] = useState(true);
-
   // Question modal state
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [currentGameQuestion, setCurrentGameQuestion] = useState<GameQuestion | null>(null);
@@ -36,7 +31,7 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
 
   const game = userGames.find((g) => g.id === selectedGameId);
   const totalQuestions = game?.questionsCount || 10;
-  const gameType: GameType = (game?.gameType as GameType) || 'quiz';
+  const gameType: GameType = (game?.gameType as GameType) || 'plane';
 
   // Handle question modal answer
   const handleQuestionAnswer = useCallback((isCorrect: boolean, userAnswer: string) => {
@@ -86,50 +81,22 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
     }
   }, []);
 
-  // ✅ NEW: Fetch game configuration from backend
+  // Initialize game when component mounts
   useEffect(() => {
-    const fetchConfig = async () => {
-      if (!game?.templateId) {
-        console.warn('No templateId found, using legacy game type');
-        setConfigLoading(false);
-        return;
-      }
+    if (!canvasRef.current || !game) return;
 
-      try {
-        console.log('🔄 Fetching game config for template:', game.templateId);
-        const response = await gameService.getGameConfig(game.templateId);
-        console.log('✅ Game config loaded:', response.data);
-        setGameConfig(response.data);
-      } catch (error) {
-        console.error('❌ Failed to load game config:', error);
-        // Continue with legacy gameType if config fetch fails
-      } finally {
-        setConfigLoading(false);
-      }
-    };
+    console.log('🎮 Initializing game:', game.title, '- Type:', gameType);
 
-    fetchConfig();
-  }, [game?.templateId]);
-
-  // ✅ UPDATED: Initialize game AFTER config is loaded
-  useEffect(() => {
-    if (!canvasRef.current || !game || configLoading) return;
-
-    console.log('🎮 Initializing game with:', {
-      hasConfig: !!gameConfig,
-      gameType,
-      templateId: game.templateId
-    });
-
-    // Initialize PixiJS game with backend configuration
+    // Initialize PixiJS game
     initializeGame(
       canvasRef.current,
       {
         onQuestionComplete: (isCorrect: boolean) => {
           // This callback is now handled by the modal
-          // Keep for backward compatibility
+          console.log('Question completed:', isCorrect);
         },
         onGameComplete: (finalScore: number) => {
+          console.log('Game completed with score:', finalScore);
           updateProgress(finalScore);
         },
         onScoreUpdate: (newScore: number, secondary?: number) => {
@@ -138,17 +105,17 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
             setSecondaryStat(secondary);
           }
         },
-        onShowQuestion: showQuestion, // ← Pass the show question function
+        onShowQuestion: showQuestion,
       },
-      gameConfig ?? undefined,  // ← Pass backend config (or undefined)
-      gameType                   // ← Fallback to legacy gameType
+      undefined,  // No backend config needed for built-in questions
+      gameType
     );
 
     // Cleanup on unmount
     return () => {
       cleanupGame();
     };
-  }, [game, gameType, gameConfig, configLoading, showQuestion, updateProgress]);
+  }, [game, gameType, showQuestion, updateProgress]);
 
   const handlePausePlay = () => {
     setIsPlaying(!isPlaying);
@@ -159,18 +126,6 @@ export const GamePlayView = ({ onBack }: GamePlayViewProps) => {
     setIsMuted(!isMuted);
     // Add mute/unmute logic
   };
-
-  // ✅ NEW: Show loading state while fetching config
-  if (configLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading game configuration...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!game) {
     return (
