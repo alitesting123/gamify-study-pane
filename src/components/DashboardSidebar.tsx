@@ -1,4 +1,4 @@
-import { BookOpen, Gamepad2, Library, Clock, Play } from "lucide-react";
+import { BookOpen, Gamepad2, Library, Clock, Play, BarChart3 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { title: "Game Library", icon: Library, view: "library" },
+  { title: "My Stats", icon: BarChart3, view: "stats" },
   { title: "My Notes", icon: BookOpen, view: "notes" },
 ];
 
